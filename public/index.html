@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GtubeVersor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <main class="shell">
+      <header class="topbar">
+        <span class="brand-mark">G</span>
+        <span class="brand-name">GtubeVersor</span>
+        <span class="brand-dust" aria-hidden="true"></span>
+      </header>
+
+      <section class="recent-strip">
+        <div class="recent-header">
+          <span class="eyebrow">Recent</span>
+          <h2>Ultimas conversiones</h2>
+        </div>
+        <div class="recent-viewport">
+          <div id="recent-carousel" class="recent-carousel recent-empty">
+            <div class="recent-placeholder">Todavia no hay conversiones.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="hero">
+        <div class="hero-copy">
+          <span class="eyebrow">MP3</span>
+          <h1>YouTube a MP3.</h1>
+          <p class="lede">Pega el link y descarga.</p>
+        </div>
+
+        <div class="converter-card">
+          <form id="converter-form" class="converter-form">
+            <label class="field">
+              <span>Link de YouTube</span>
+              <input
+                id="youtube-url"
+                name="url"
+                type="url"
+                placeholder="https://www.youtube.com/watch?v=..."
+                autocomplete="off"
+                required
+              />
+            </label>
+
+            <div class="controls">
+              <label class="field field-compact">
+                <span>Calidad</span>
+                <select id="quality" name="quality"></select>
+              </label>
+              <button id="preview-button" type="button" class="ghost-button">Previsualizar</button>
+              <button id="download-button" type="submit" class="primary-button">Descargar MP3</button>
+            </div>
+          </form>
+
+          <p id="status" class="status">Esperando un link valido.</p>
+
+          <section id="preview" class="preview preview-empty">
+            <div class="preview-placeholder">
+              <div class="preview-icon"></div>
+              <p>La ficha del video aparecera aqui.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <div class="section-separator" aria-hidden="true"></div>
+
+      <section class="studio">
+        <div class="studio-copy">
+          <span class="eyebrow">MP4</span>
+          <h2>Imagen + audio a video.</h2>
+          <p class="lede">Sube los archivos y exporta.</p>
+        </div>
+
+        <div class="studio-card">
+          <form id="video-form" class="converter-form" enctype="multipart/form-data">
+            <div class="source-toggle" role="tablist" aria-label="Fuente de portada">
+              <button id="source-upload" class="toggle-chip is-active" type="button">Subir</button>
+              <button id="source-pinterest" class="toggle-chip pinterest-chip" type="button">
+                <span class="pinterest-badge" aria-hidden="true">
+                  <img src="/pinterestlogo.png" alt="" />
+                </span>
+                Pinterest
+              </button>
+            </div>
+
+            <div class="upload-grid">
+              <label class="field file-field">
+                <span>Imagen</span>
+                <input id="video-image" name="image" type="file" accept="image/*" required />
+                <span class="file-trigger">
+                  <span class="file-icon file-icon-image" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="presentation">
+                      <path
+                        d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2Z"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2.2"
+                      />
+                      <circle cx="9" cy="9" r="1.5" fill="currentColor" />
+                      <path
+                        d="m7 16 3.2-3.2a1 1 0 0 1 1.4 0L13 14l1.7-1.7a1 1 0 0 1 1.4 0L18 14"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2.2"
+                      />
+                    </svg>
+                  </span>
+                  <span class="file-copy">
+                    <strong>Subir imagen</strong>
+                    <small id="image-file-name">Ningun archivo</small>
+                  </span>
+                </span>
+              </label>
+
+              <label class="field file-field">
+                <span>Audio</span>
+                <input id="video-audio" name="audio" type="file" accept="audio/*" required />
+                <span class="file-trigger">
+                  <span class="file-icon file-icon-audio" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="presentation">
+                      <path
+                        d="M14.5 4.5v10.2"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-width="2.2"
+                      />
+                      <path
+                        d="M18 8v7.5a2.5 2.5 0 1 1-1.8-2.4V6.8L9 8.6v9.9a2.5 2.5 0 1 1-1.8-2.4V7.2c0-.8.5-1.5 1.3-1.7l7.2-1.8A1.8 1.8 0 0 1 18 5.5V8Z"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2.2"
+                      />
+                      <path
+                        d="M14.5 6.5 19 5.3"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-width="2.2"
+                      />
+                    </svg>
+                  </span>
+                  <span class="file-copy">
+                    <strong>Subir audio</strong>
+                    <small id="audio-file-name">Ningun archivo</small>
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <section id="pinterest-panel" class="gallery-panel is-hidden">
+              <label class="field">
+                <span>Link de Pinterest</span>
+                <input id="pinterest-url" type="url" placeholder="https://www.pinterest.com/pin/..." autocomplete="off" />
+              </label>
+              <div class="gallery-actions">
+                <button id="pinterest-preview-button" type="button" class="ghost-button">Cargar portada</button>
+              </div>
+            </section>
+
+            <div class="controls">
+              <label class="field field-compact">
+                <span>Formato</span>
+                <select id="video-ratio" name="ratio"></select>
+              </label>
+              <button id="video-preview-button" type="button" class="ghost-button">Preparar</button>
+              <button id="video-submit-button" type="submit" class="primary-button">Crear MP4</button>
+            </div>
+          </form>
+
+          <p id="video-status" class="status">Sube una imagen y un audio para montar el video.</p>
+
+          <section id="video-preview" class="preview preview-empty">
+            <div class="preview-placeholder">
+              <div class="preview-icon"></div>
+              <p>Tu composicion de video aparecera aqui.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

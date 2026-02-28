@@ -1,0 +1,10 @@
+node_modules/
+data/uploads/
+1772304102774-player-script.js
+1772304102785-player-script.js
+1772304114430-player-script.js
+1772304114441-player-script.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
