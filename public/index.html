@@ -15,234 +15,263 @@
   </head>
   <body>
     <div class="noise"></div>
-    <main class="shell">
-      <header class="topbar">
-        <span class="brand-mark">G</span>
-        <span class="brand-name">GtubeVersor</span>
-        <span class="brand-dust" aria-hidden="true"></span>
-      </header>
-
-      <section class="recent-strip">
-        <div class="recent-header">
-          <span class="eyebrow">Recent</span>
-          <h2>Ultimas conversiones</h2>
-        </div>
-        <div class="recent-viewport">
-          <div id="recent-carousel" class="recent-carousel recent-empty">
-            <div class="recent-placeholder">Todavia no hay conversiones.</div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span class="brand-mark">G</span>
+          <div>
+            <strong>GtubeVersor</strong>
+            <small>Creator Toolkit</small>
           </div>
         </div>
-      </section>
 
-      <section class="hero">
-        <div class="hero-copy">
-          <span class="eyebrow">MP3</span>
-          <h1>YouTube a MP3.</h1>
-          <p class="lede">Pega el link y descarga.</p>
+        <div class="brand-links" aria-label="Links principales">
+          <a class="brand-link" href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="YouTube">
+            <img src="/youtube.png" alt="" />
+          </a>
+          <a class="brand-link" href="https://soundcloud.com/" target="_blank" rel="noreferrer" aria-label="SoundCloud">
+            <img src="/soundcloud.png" alt="" />
+          </a>
+          <a class="brand-link" href="https://www.pinterest.com/" target="_blank" rel="noreferrer" aria-label="Pinterest">
+            <img src="/pinterest.png" alt="" />
+          </a>
+          <a class="brand-link" href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook">
+            <img src="/facebook.png" alt="" />
+          </a>
+          <a class="brand-link" href="https://x.com/" target="_blank" rel="noreferrer" aria-label="Twitter">
+            <img src="/twitter.png" alt="" />
+          </a>
+          <a class="brand-link" href="https://www.instagram.com/" target="_blank" rel="noreferrer" aria-label="Instagram">
+            <img src="/instagram.png" alt="" />
+          </a>
+          <a class="brand-link" href="https://www.tiktok.com/" target="_blank" rel="noreferrer" aria-label="TikTok">
+            <img src="/tik-tok.png" alt="" />
+          </a>
         </div>
 
-        <div class="converter-card">
-          <form id="converter-form" class="converter-form">
-            <label class="field">
-              <span>Link de YouTube</span>
-              <input
-                id="youtube-url"
-                name="url"
-                type="url"
-                placeholder="https://www.youtube.com/watch?v=..."
-                autocomplete="off"
-                required
-              />
-            </label>
+        <nav class="sidebar-nav">
+          <button class="nav-link is-active" data-target="youtube-tool">Extractor</button>
+          <button class="nav-link" data-target="bulk-tool">Bulk Convert</button>
+          <button class="nav-link" data-target="video-tool">Video Studio</button>
+          <button class="nav-link" data-target="trim-tool">Audio Trim</button>
+        </nav>
+      </aside>
 
-            <div class="controls">
-              <label class="field field-compact">
-                <span>Calidad</span>
-                <select id="quality" name="quality"></select>
-              </label>
-              <button id="preview-button" type="button" class="ghost-button">Previsualizar</button>
-              <button id="download-button" type="submit" class="primary-button">Descargar MP3</button>
+      <main class="workspace">
+        <section class="recent-strip recent-strip-fixed">
+          <div class="recent-side-label">
+            <span class="eyebrow eyebrow-vertical">Recent</span>
+          </div>
+          <div class="recent-viewport">
+            <div id="recent-carousel" class="recent-carousel recent-empty">
+              <div class="recent-placeholder">Todavia no hay conversiones.</div>
             </div>
-          </form>
+          </div>
+        </section>
 
-          <p id="status" class="status">Esperando un link valido.</p>
-
-          <section id="preview" class="preview preview-empty">
-            <div class="preview-placeholder">
-              <div class="preview-icon"></div>
-              <p>La ficha del video aparecera aqui.</p>
+        <section id="youtube-tool" class="tool-panel is-active">
+          <div class="panel-header">
+            <div class="panel-title-inline">
+              <h2>Extractor</h2>
+              <small class="panel-microcopy">mp3 mp4</small>
             </div>
-          </section>
-        </div>
-      </section>
+          </div>
+          <div class="tool-grid">
+            <article class="tool-copy">
+              <p>Pega un link de YouTube, SoundCloud, Pinterest, Facebook, Twitter, Instagram o TikTok y extrae audio o video.</p>
+            </article>
+            <article class="tool-card">
+              <form id="converter-form" class="stack-form">
+                <label class="field">
+                  <span>Link</span>
+                  <input
+                    id="youtube-url"
+                    type="url"
+                    placeholder="https://www.youtube.com/watch?v=... o https://www.instagram.com/..."
+                    autocomplete="off"
+                    required
+                  />
+                </label>
+                <div class="controls controls-4">
+                  <label class="field field-compact">
+                    <span>Salida</span>
+                    <select id="media-format">
+                      <option value="mp3">Audio MP3</option>
+                      <option value="mp4">Video MP4</option>
+                    </select>
+                  </label>
+                  <label class="field field-compact">
+                    <span>Calidad</span>
+                    <select id="quality"></select>
+                  </label>
+                  <button id="preview-button" type="button" class="ghost-button">Previsualizar</button>
+                  <button id="download-button" type="submit" class="primary-button">Descargar</button>
+                </div>
+              </form>
+              <p id="status" class="status">Esperando un link compatible.</p>
+              <section id="preview" class="preview preview-empty">
+                <div class="preview-placeholder">
+                  <div class="preview-icon"></div>
+                  <p>La ficha del link aparecera aqui.</p>
+                </div>
+              </section>
+            </article>
+          </div>
+        </section>
 
-      <div class="section-separator" aria-hidden="true"></div>
-
-      <section class="hero hero-secondary">
-        <div class="hero-copy">
-          <span class="eyebrow">MP3</span>
-          <h2>SoundCloud a MP3.</h2>
-          <p class="lede">Pega el link y descarga.</p>
-        </div>
-
-        <div class="converter-card">
-          <form id="soundcloud-form" class="converter-form">
-            <label class="field">
-              <span>Link de SoundCloud</span>
-              <input
-                id="soundcloud-url"
-                name="url"
-                type="url"
-                placeholder="https://soundcloud.com/..."
-                autocomplete="off"
-                required
-              />
-            </label>
-
-            <div class="controls">
-              <label class="field field-compact">
-                <span>Calidad</span>
-                <select id="soundcloud-quality" name="quality"></select>
-              </label>
-              <button id="soundcloud-preview-button" type="button" class="ghost-button">Previsualizar</button>
-              <button id="soundcloud-download-button" type="submit" class="primary-button">Descargar MP3</button>
+        <section id="bulk-tool" class="tool-panel">
+          <div class="panel-header">
+            <div>
+              <span class="eyebrow">Batch</span>
+              <h2>Bulk Convert.</h2>
             </div>
-          </form>
-
-          <p id="soundcloud-status" class="status">Esperando un link de SoundCloud.</p>
-
-          <section id="soundcloud-preview" class="preview preview-empty">
-            <div class="preview-placeholder">
-              <div class="preview-icon"></div>
-              <p>La ficha de la pista aparecera aqui.</p>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <div class="section-separator" aria-hidden="true"></div>
-
-      <section class="studio">
-        <div class="studio-copy">
-          <span class="eyebrow">MP4</span>
-          <h2>Imagen + audio a video.</h2>
-          <p class="lede">Sube los archivos y exporta.</p>
-        </div>
-
-        <div class="studio-card">
-          <form id="video-form" class="converter-form" enctype="multipart/form-data">
-            <div class="source-toggle" role="tablist" aria-label="Fuente de portada">
-              <button id="source-upload" class="toggle-chip is-active" type="button">Subir</button>
-              <button id="source-pinterest" class="toggle-chip pinterest-chip" type="button">
-                <span class="pinterest-badge" aria-hidden="true">
-                  <img src="/pinterestlogo.png" alt="" />
-                </span>
-                Pinterest
-              </button>
-            </div>
-
-            <div class="upload-grid">
-              <label class="field file-field">
-                <span>Imagen</span>
-                <input id="video-image" name="image" type="file" accept="image/*" required />
-                <span class="file-trigger">
-                  <span class="file-icon file-icon-image" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="presentation">
-                      <path
-                        d="M4.5 6.5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2Z"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2.2"
-                      />
-                      <circle cx="9" cy="9" r="1.5" fill="currentColor" />
-                      <path
-                        d="m7 16 3.2-3.2a1 1 0 0 1 1.4 0L13 14l1.7-1.7a1 1 0 0 1 1.4 0L18 14"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2.2"
-                      />
-                    </svg>
-                  </span>
-                  <span class="file-copy">
-                    <strong>Subir imagen</strong>
-                    <small id="image-file-name">Ningun archivo</small>
-                  </span>
-                </span>
-              </label>
-
-              <label class="field file-field">
-                <span>Audio</span>
-                <input id="video-audio" name="audio" type="file" accept="audio/*" required />
-                <span class="file-trigger">
-                  <span class="file-icon file-icon-audio" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="presentation">
-                      <path
-                        d="M14.5 4.5v10.2"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-width="2.2"
-                      />
-                      <path
-                        d="M18 8v7.5a2.5 2.5 0 1 1-1.8-2.4V6.8L9 8.6v9.9a2.5 2.5 0 1 1-1.8-2.4V7.2c0-.8.5-1.5 1.3-1.7l7.2-1.8A1.8 1.8 0 0 1 18 5.5V8Z"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2.2"
-                      />
-                      <path
-                        d="M14.5 6.5 19 5.3"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-width="2.2"
-                      />
-                    </svg>
-                  </span>
-                  <span class="file-copy">
-                    <strong>Subir audio</strong>
-                    <small id="audio-file-name">Ningun archivo</small>
-                  </span>
-                </span>
-              </label>
-            </div>
-
-            <section id="pinterest-panel" class="gallery-panel is-hidden">
+          </div>
+          <div class="tool-card">
+            <form id="bulk-form" class="stack-form">
               <label class="field">
-                <span>Link de Pinterest</span>
-                <input id="pinterest-url" type="url" placeholder="https://www.pinterest.com/pin/..." autocomplete="off" />
+                <span>Links</span>
+                <textarea
+                  id="bulk-urls"
+                  rows="7"
+                  placeholder="Un link por linea. Mezcla YouTube, SoundCloud, Pinterest, Facebook, Twitter, Instagram o TikTok."
+                ></textarea>
               </label>
-              <div class="gallery-actions">
-                <button id="pinterest-preview-button" type="button" class="ghost-button">Cargar portada</button>
+              <div class="controls controls-2">
+                <label class="field field-compact">
+                  <span>Calidad</span>
+                  <select id="bulk-quality"></select>
+                </label>
+                <button id="bulk-build-button" type="submit" class="primary-button">Preparar lote</button>
+              </div>
+            </form>
+            <p id="bulk-status" class="status">Arma un lote de links y te dejo las descargas listas.</p>
+            <div id="bulk-results" class="batch-list empty-state">Todavia no hay descargas preparadas.</div>
+          </div>
+        </section>
+
+        <section id="video-tool" class="tool-panel">
+          <div class="panel-header">
+            <div>
+              <span class="eyebrow">Video</span>
+              <h2>Video Studio.</h2>
+            </div>
+          </div>
+          <div class="tool-card">
+            <form id="video-form" class="stack-form" enctype="multipart/form-data">
+              <div class="source-toggle">
+                <button id="source-upload" class="toggle-chip is-active" type="button">Subir</button>
+                <button id="source-pinterest" class="toggle-chip pinterest-chip" type="button">
+                  <span class="pinterest-badge" aria-hidden="true"><img src="/pinterest.png" alt="" /></span>
+                  Pinterest
+                </button>
+              </div>
+
+              <div class="upload-grid">
+                <label class="field file-field">
+                  <span>Imagen</span>
+                  <input id="video-image" name="image" type="file" accept="image/*" required />
+                  <span class="file-trigger">
+                    <span class="file-icon file-icon-image">IMG</span>
+                    <span class="file-copy">
+                      <strong>Subir imagen</strong>
+                      <small id="image-file-name">Ningun archivo</small>
+                    </span>
+                  </span>
+                </label>
+
+                <label class="field file-field">
+                  <span>Audio</span>
+                  <input id="video-audio" name="audio" type="file" accept="audio/*" required />
+                  <span class="file-trigger">
+                    <span class="file-icon file-icon-audio">AUD</span>
+                    <span class="file-copy">
+                      <strong>Subir audio</strong>
+                      <small id="audio-file-name">Ningun archivo</small>
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              <section id="pinterest-panel" class="soft-panel is-hidden">
+                <label class="field">
+                  <span>Link de Pinterest</span>
+                  <input id="pinterest-url" type="url" placeholder="https://www.pinterest.com/pin/..." autocomplete="off" />
+                </label>
+                <div class="gallery-actions">
+                  <button id="pinterest-preview-button" type="button" class="ghost-button">Cargar portada</button>
+                </div>
+              </section>
+
+              <div class="controls controls-4">
+                <label class="field field-compact">
+                  <span>Formato</span>
+                  <select id="video-ratio" name="ratio"></select>
+                </label>
+                <button id="video-preview-button" type="button" class="ghost-button">Preparar</button>
+                <button id="video-submit-button" type="submit" class="primary-button">Crear MP4</button>
+              </div>
+            </form>
+
+            <p id="video-status" class="status">Sube una imagen y un audio para montar el video.</p>
+            <section id="video-preview" class="preview preview-empty">
+              <div class="preview-placeholder">
+                <div class="preview-icon"></div>
+                <p>Tu composicion de video aparecera aqui.</p>
               </div>
             </section>
+          </div>
+        </section>
 
-            <div class="controls">
-              <label class="field field-compact">
-                <span>Formato</span>
-                <select id="video-ratio" name="ratio"></select>
+        <section id="trim-tool" class="tool-panel">
+          <div class="panel-header">
+            <div>
+              <span class="eyebrow">Edit</span>
+              <h2>Audio Trim.</h2>
+            </div>
+          </div>
+          <div class="tool-card">
+            <form id="trim-form" class="stack-form" enctype="multipart/form-data">
+              <label class="field file-field">
+                <span>Audio</span>
+                <input id="trim-audio" name="audio" type="file" accept="audio/*" required />
+                <span class="file-trigger">
+                  <span class="file-icon file-icon-audio">AUD</span>
+                  <span class="file-copy">
+                    <strong>Subir audio</strong>
+                    <small id="trim-audio-name">Ningun archivo</small>
+                  </span>
+                </span>
               </label>
-              <button id="video-preview-button" type="button" class="ghost-button">Preparar</button>
-              <button id="video-submit-button" type="submit" class="primary-button">Crear MP4</button>
-            </div>
-          </form>
-
-          <p id="video-status" class="status">Sube una imagen y un audio para montar el video.</p>
-
-          <section id="video-preview" class="preview preview-empty">
-            <div class="preview-placeholder">
-              <div class="preview-icon"></div>
-              <p>Tu composicion de video aparecera aqui.</p>
-            </div>
-          </section>
-        </div>
-      </section>
-    </main>
+              <div class="triple-grid">
+                <label class="field">
+                  <span>Inicio</span>
+                  <input id="trim-start" type="text" placeholder="0:15" />
+                </label>
+                <label class="field">
+                  <span>Fin</span>
+                  <input id="trim-end" type="text" placeholder="1:00" />
+                </label>
+                <label class="field">
+                  <span>Formato</span>
+                  <select id="trim-format">
+                    <option value="mp3">MP3</option>
+                    <option value="wav">WAV</option>
+                  </select>
+                </label>
+              </div>
+              <div class="controls controls-2">
+                <label class="field field-compact">
+                  <span>Calidad</span>
+                  <select id="trim-quality"></select>
+                </label>
+                <button id="trim-submit-button" type="submit" class="primary-button">Recortar audio</button>
+              </div>
+            </form>
+            <p id="trim-status" class="status">Sube un audio y marca el rango.</p>
+          </div>
+        </section>
+      </main>
+    </div>
 
     <script src="/app.js" defer></script>
   </body>
