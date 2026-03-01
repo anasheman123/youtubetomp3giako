@@ -175,6 +175,110 @@ async function getVideoInfo(url) {
   });
 }
 
+function getAudioSourceLabel(source) {
+  return source === "soundcloud" ? "SoundCloud" : "YouTube";
+}
+
+function getAudioSourceError(source) {
+  return source === "soundcloud"
+    ? "No se pudo leer la pista. Revisa que el link sea publico y valido."
+    : "No se pudo leer el video. Revisa que el link sea publico y valido.";
+}
+
+function getAudioConvertError(source) {
+  return source === "soundcloud" ? "No se pudo convertir la pista." : "No se pudo convertir el video.";
+}
+
+async function getAudioInfoResponse(url, source) {
+  const details = await getVideoInfo(url);
+
+  return {
+    id: details.id,
+    title: details.title,
+    author: details.uploader || details.channel || details.artist || "Autor desconocido",
+    lengthSeconds: Number(details.duration || 0),
+    thumbnails: details.thumbnails || [],
+    formats: AUDIO_FORMATS,
+    source,
+  };
+}
+
+async function handleAudioConvert(req, res, source) {
+  const { url, quality = "192k" } = req.query;
+
+  if (!url || typeof url !== "string") {
+    return res.status(400).json({ error: `URL de ${getAudioSourceLabel(source)} invalida.` });
+  }
+
+  const selectedFormat = AUDIO_FORMATS.find((item) => item.quality === quality);
+  if (!selectedFormat) {
+    return res.status(400).json({ error: "Calidad no soportada." });
+  }
+
+  const tempDir = path.join(os.tmpdir(), `youtubetomp3-${source}-${randomUUID()}`);
+  const sourceTemplate = path.join(tempDir, "source.%(ext)s");
+
+  try {
+    await fs.mkdir(tempDir, { recursive: true });
+
+    const details = await getVideoInfo(url);
+    const title = sanitizeFilename(details.title || "audio");
+
+    await youtubedl(url, {
+      format: "bestaudio/best",
+      ffmpegLocation: ffmpegPath,
+      noCheckCertificates: true,
+      noWarnings: true,
+      noPlaylist: true,
+      output: sourceTemplate,
+    });
+
+    const files = await fs.readdir(tempDir);
+    const sourceName = files.find((file) => file.startsWith("source."));
+
+    if (!sourceName) {
+      throw new Error("No se encontro el audio descargado.");
+    }
+
+    const sourcePath = path.join(tempDir, sourceName);
+    const targetName = `${title || "audio"}.mp3`;
+    const targetPath = path.join(tempDir, targetName);
+    const asciiFallback = escapeHeaderFilename(targetName.replace(/[^\x20-\x7E]/g, ""));
+
+    await convertToMp3(sourcePath, targetPath, selectedFormat.quality);
+
+    pushRecentConversion({
+      type: "mp3",
+      title,
+      subtitle: `${getAudioSourceLabel(source)} - ${selectedFormat.label} - ${selectedFormat.quality}`,
+      preview: details.thumbnails?.[details.thumbnails.length - 1]?.url || "",
+      accent: source === "soundcloud" ? "soundcloud" : "audio",
+    });
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${asciiFallback || "audio.mp3"}"; filename*=UTF-8''${encodeURIComponent(targetName)}`,
+    );
+
+    return res.download(targetPath, targetName, async (error) => {
+      await fs.rm(tempDir, { recursive: true, force: true });
+      if (error && !res.headersSent) {
+        res.status(500).json({ error: "No se pudo entregar el MP3 final." });
+      }
+    });
+  } catch (error) {
+    if (existsSync(tempDir)) {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
+
+    return res.status(500).json({
+      error: getAudioConvertError(source),
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 async function convertToMp3(inputPath, outputPath, quality) {
   await new Promise((resolve, reject) => {
     ffmpeg(inputPath)
@@ -308,98 +412,38 @@ app.get("/api/info", async (req, res) => {
   }
 
   try {
-    const details = await getVideoInfo(url);
-
-    return res.json({
-      id: details.id,
-      title: details.title,
-      author: details.uploader || details.channel || "Canal desconocido",
-      lengthSeconds: Number(details.duration || 0),
-      thumbnails: details.thumbnails || [],
-      formats: AUDIO_FORMATS,
-    });
+    return res.json(await getAudioInfoResponse(url, "youtube"));
   } catch (error) {
     return res.status(500).json({
-      error: "No se pudo leer el video. Revisa que el link sea publico y valido.",
+      error: getAudioSourceError("youtube"),
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+app.get("/api/soundcloud-info", async (req, res) => {
+  const { url } = req.query;
+
+  if (!url || typeof url !== "string") {
+    return res.status(400).json({ error: "URL de SoundCloud invalida." });
+  }
+
+  try {
+    return res.json(await getAudioInfoResponse(url, "soundcloud"));
+  } catch (error) {
+    return res.status(500).json({
+      error: getAudioSourceError("soundcloud"),
       details: error instanceof Error ? error.message : String(error),
     });
   }
 });
 
 app.get("/api/convert", async (req, res) => {
-  const { url, quality = "192k" } = req.query;
+  return handleAudioConvert(req, res, "youtube");
+});
 
-  if (!url || typeof url !== "string") {
-    return res.status(400).json({ error: "URL de YouTube invalida." });
-  }
-
-  const selectedFormat = AUDIO_FORMATS.find((item) => item.quality === quality);
-  if (!selectedFormat) {
-    return res.status(400).json({ error: "Calidad no soportada." });
-  }
-
-  const tempDir = path.join(os.tmpdir(), `youtubetomp3-${randomUUID()}`);
-  const sourceTemplate = path.join(tempDir, "source.%(ext)s");
-
-  try {
-    await fs.mkdir(tempDir, { recursive: true });
-
-    const details = await getVideoInfo(url);
-    const title = sanitizeFilename(details.title || "audio");
-
-    await youtubedl(url, {
-      format: "bestaudio/best",
-      ffmpegLocation: ffmpegPath,
-      noCheckCertificates: true,
-      noWarnings: true,
-      noPlaylist: true,
-      output: sourceTemplate,
-    });
-
-    const files = await fs.readdir(tempDir);
-    const sourceName = files.find((file) => file.startsWith("source."));
-
-    if (!sourceName) {
-      throw new Error("No se encontro el audio descargado.");
-    }
-
-    const sourcePath = path.join(tempDir, sourceName);
-    const targetName = `${title || "audio"}.mp3`;
-    const targetPath = path.join(tempDir, targetName);
-    const asciiFallback = escapeHeaderFilename(targetName.replace(/[^\x20-\x7E]/g, ""));
-
-    await convertToMp3(sourcePath, targetPath, selectedFormat.quality);
-
-    pushRecentConversion({
-      type: "mp3",
-      title,
-      subtitle: `${selectedFormat.label} - ${selectedFormat.quality}`,
-      preview: details.thumbnails?.[details.thumbnails.length - 1]?.url || "",
-      accent: "audio",
-    });
-
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${asciiFallback || "audio.mp3"}"; filename*=UTF-8''${encodeURIComponent(targetName)}`,
-    );
-
-    res.download(targetPath, targetName, async (error) => {
-      await fs.rm(tempDir, { recursive: true, force: true });
-      if (error && !res.headersSent) {
-        res.status(500).json({ error: "No se pudo entregar el MP3 final." });
-      }
-    });
-  } catch (error) {
-    if (existsSync(tempDir)) {
-      await fs.rm(tempDir, { recursive: true, force: true });
-    }
-
-    return res.status(500).json({
-      error: "No se pudo convertir el video.",
-      details: error instanceof Error ? error.message : String(error),
-    });
-  }
+app.get("/api/soundcloud-convert", async (req, res) => {
+  return handleAudioConvert(req, res, "soundcloud");
 });
 
 app.post(

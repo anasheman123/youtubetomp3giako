@@ -1,11 +1,35 @@
-const form = document.querySelector("#converter-form");
-const urlInput = document.querySelector("#youtube-url");
-const qualitySelect = document.querySelector("#quality");
-const statusNode = document.querySelector("#status");
-const previewNode = document.querySelector("#preview");
-const previewButton = document.querySelector("#preview-button");
-const downloadButton = document.querySelector("#download-button");
 const recentCarouselNode = document.querySelector("#recent-carousel");
+
+const youtubeElements = {
+  form: document.querySelector("#converter-form"),
+  urlInput: document.querySelector("#youtube-url"),
+  qualitySelect: document.querySelector("#quality"),
+  statusNode: document.querySelector("#status"),
+  previewNode: document.querySelector("#preview"),
+  previewButton: document.querySelector("#preview-button"),
+  downloadButton: document.querySelector("#download-button"),
+  infoEndpoint: "/api/info",
+  convertEndpoint: "/api/convert",
+  sourceLabel: "YouTube",
+  emptyMessage: "Esperando un link valido.",
+  previewCta: "Si la ficha es correcta, pulsa descargar para generar el MP3 en esta misma sesion.",
+};
+
+const soundcloudElements = {
+  form: document.querySelector("#soundcloud-form"),
+  urlInput: document.querySelector("#soundcloud-url"),
+  qualitySelect: document.querySelector("#soundcloud-quality"),
+  statusNode: document.querySelector("#soundcloud-status"),
+  previewNode: document.querySelector("#soundcloud-preview"),
+  previewButton: document.querySelector("#soundcloud-preview-button"),
+  downloadButton: document.querySelector("#soundcloud-download-button"),
+  infoEndpoint: "/api/soundcloud-info",
+  convertEndpoint: "/api/soundcloud-convert",
+  sourceLabel: "SoundCloud",
+  emptyMessage: "Esperando un link de SoundCloud.",
+  previewCta: "Si la ficha es correcta, pulsa descargar para generar el MP3 desde SoundCloud.",
+};
+
 const videoForm = document.querySelector("#video-form");
 const videoImageInput = document.querySelector("#video-image");
 const videoAudioInput = document.querySelector("#video-audio");
@@ -21,11 +45,12 @@ const videoStatusNode = document.querySelector("#video-status");
 const videoPreviewNode = document.querySelector("#video-preview");
 const videoPreviewButton = document.querySelector("#video-preview-button");
 const videoSubmitButton = document.querySelector("#video-submit-button");
+
 let imageSourceMode = "upload";
 let selectedPinterestImage = null;
 
 function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (char) => {
+  return String(value).replace(/[&<>"']/g, (char) => {
     const entities = {
       "&": "&amp;",
       "<": "&lt;",
@@ -38,22 +63,18 @@ function escapeHtml(value) {
   });
 }
 
-function setStatus(message, tone = "") {
-  statusNode.textContent = message;
+function setNodeStatus(node, message, tone = "") {
+  node.textContent = message;
   if (tone) {
-    statusNode.dataset.tone = tone;
+    node.dataset.tone = tone;
     return;
   }
-  delete statusNode.dataset.tone;
+
+  delete node.dataset.tone;
 }
 
 function setVideoStatus(message, tone = "") {
-  videoStatusNode.textContent = message;
-  if (tone) {
-    videoStatusNode.dataset.tone = tone;
-    return;
-  }
-  delete videoStatusNode.dataset.tone;
+  setNodeStatus(videoStatusNode, message, tone);
 }
 
 function formatDuration(totalSeconds) {
@@ -93,6 +114,7 @@ function renderRecent(items) {
 
   recentCarouselNode.classList.remove("recent-empty");
   recentCarouselNode.classList.add("recent-animated");
+
   const cardsMarkup = items
     .map((item) => {
       const hasPreview = Boolean(item.preview);
@@ -137,15 +159,18 @@ async function refreshRecent() {
   }
 }
 
-function renderPreview(data) {
+function renderAudioPreview(target, data) {
   const image = data.thumbnails?.[data.thumbnails.length - 1]?.url ?? "";
   const title = escapeHtml(data.title);
   const author = escapeHtml(data.author);
+  const visual = image
+    ? `<img src="${image}" alt="Miniatura de ${title}" />`
+    : `<div class="preview-cover-fallback">${escapeHtml(target.sourceLabel)}</div>`;
 
-  previewNode.classList.remove("preview-empty");
-  previewNode.innerHTML = `
+  target.previewNode.classList.remove("preview-empty");
+  target.previewNode.innerHTML = `
     <div class="preview-content">
-      <img src="${image}" alt="Miniatura de ${title}" />
+      ${visual}
       <div class="preview-body">
         <div>
           <h2>${title}</h2>
@@ -153,25 +178,27 @@ function renderPreview(data) {
         </div>
         <div class="meta">
           <span>${formatDuration(data.lengthSeconds)}</span>
-          <span>${qualitySelect.value}</span>
+          <span>${target.qualitySelect.value}</span>
           <span>MP3</span>
         </div>
-        <p>Si la ficha es correcta, pulsa descargar para generar el MP3 en esta misma sesion.</p>
+        <p>${target.previewCta}</p>
       </div>
     </div>
   `;
+}
+
+function populateAudioFormats(selectNode, formats) {
+  selectNode.innerHTML = formats
+    .map((format) => `<option value="${format.quality}">${format.label} - ${format.quality} - ${format.note}</option>`)
+    .join("");
 }
 
 async function loadFormats() {
   const response = await fetch("/api/formats");
   const data = await response.json();
 
-  qualitySelect.innerHTML = data.formats
-    .map(
-      (format) =>
-        `<option value="${format.quality}">${format.label} - ${format.quality} - ${format.note}</option>`,
-    )
-    .join("");
+  populateAudioFormats(youtubeElements.qualitySelect, data.formats);
+  populateAudioFormats(soundcloudElements.qualitySelect, data.formats);
 
   videoRatioSelect.innerHTML = data.videoFormats
     .map((format) => `<option value="${format.ratio}">${format.label} - ${format.size}</option>`)
@@ -185,6 +212,59 @@ function getSelectedFile(input) {
 function setFileLabel(input, node, emptyLabel) {
   const file = getSelectedFile(input);
   node.textContent = file ? file.name : emptyLabel;
+}
+
+async function fetchAudioPreview(target) {
+  const url = target.urlInput.value.trim();
+  if (!url) {
+    setNodeStatus(target.statusNode, `Pega un link de ${target.sourceLabel} antes de previsualizar.`, "error");
+    return null;
+  }
+
+  setNodeStatus(target.statusNode, `Leyendo datos de ${target.sourceLabel}...`);
+  target.previewButton.disabled = true;
+  target.downloadButton.disabled = true;
+
+  try {
+    const response = await fetch(`${target.infoEndpoint}?url=${encodeURIComponent(url)}`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || `No se pudo cargar ${target.sourceLabel}.`);
+    }
+
+    renderAudioPreview(target, data);
+    setNodeStatus(target.statusNode, `${target.sourceLabel} validado. Ya puedes descargar el MP3.`, "success");
+    return data;
+  } catch (error) {
+    setNodeStatus(target.statusNode, error.message, "error");
+    return null;
+  } finally {
+    target.previewButton.disabled = false;
+    target.downloadButton.disabled = false;
+  }
+}
+
+function attachAudioConverter(target) {
+  target.previewButton.addEventListener("click", () => fetchAudioPreview(target));
+
+  target.form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const preview = await fetchAudioPreview(target);
+    if (!preview) {
+      return;
+    }
+
+    const params = new URLSearchParams({
+      url: target.urlInput.value.trim(),
+      quality: target.qualitySelect.value,
+    });
+
+    setNodeStatus(target.statusNode, "Preparando descarga del MP3...", "success");
+    setTimeout(refreshRecent, 1200);
+    window.location.href = `${target.convertEndpoint}?${params.toString()}`;
+  });
 }
 
 function renderVideoPreview() {
@@ -212,7 +292,7 @@ function renderVideoPreview() {
         </div>
         <div class="meta">
           <span>${escapeHtml(ratioLabel)}</span>
-          <span>${Math.round(audioFile.size / 1024 / 1024 * 10) / 10} MB audio</span>
+          <span>${Math.round((audioFile.size / 1024 / 1024) * 10) / 10} MB audio</span>
           <span>MP4</span>
         </div>
         <p>La imagen quedara fija durante toda la duracion del audio y se exportara como video.</p>
@@ -244,7 +324,7 @@ function setSourceMode(mode) {
   videoImageInput.required = isUpload;
 
   if (!isUpload) {
-    setVideoStatus("Pega un link de Pinterest y carga la portada.", "");
+    setVideoStatus("Pega un link de Pinterest y carga la portada.");
   }
 }
 
@@ -256,7 +336,7 @@ async function loadPinterestPreview() {
   }
 
   pinterestPreviewButton.disabled = true;
-  setVideoStatus("Leyendo pin de Pinterest...", "");
+  setVideoStatus("Leyendo pin de Pinterest...");
 
   try {
     const response = await fetch(`/api/pinterest-preview?url=${encodeURIComponent(url)}`);
@@ -279,61 +359,10 @@ async function loadPinterestPreview() {
   }
 }
 
-async function fetchPreview() {
-  const url = urlInput.value.trim();
-  if (!url) {
-    setStatus("Pega un link antes de previsualizar.", "error");
-    return null;
-  }
-
-  setStatus("Leyendo datos del video...", "");
-  previewButton.disabled = true;
-  downloadButton.disabled = true;
-
-  try {
-    const response = await fetch(`/api/info?url=${encodeURIComponent(url)}`);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "No se pudo cargar el video.");
-    }
-
-    renderPreview(data);
-    setStatus("Video validado. Ya puedes descargar el MP3.", "success");
-    return data;
-  } catch (error) {
-    setStatus(error.message, "error");
-    return null;
-  } finally {
-    previewButton.disabled = false;
-    downloadButton.disabled = false;
-  }
-}
-
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  const preview = await fetchPreview();
-  if (!preview) {
-    return;
-  }
-
-  const params = new URLSearchParams({
-    url: urlInput.value.trim(),
-    quality: qualitySelect.value,
-  });
-
-  setStatus("Preparando descarga del MP3...", "success");
-  setTimeout(refreshRecent, 1200);
-  window.location.href = `/api/convert?${params.toString()}`;
-});
-
-previewButton.addEventListener("click", fetchPreview);
-
-videoPreviewButton.addEventListener("click", renderVideoPreview);
 sourceUploadButton.addEventListener("click", () => setSourceMode("upload"));
 sourcePinterestButton.addEventListener("click", () => setSourceMode("pinterest"));
 pinterestPreviewButton.addEventListener("click", loadPinterestPreview);
+videoPreviewButton.addEventListener("click", renderVideoPreview);
 
 videoImageInput.addEventListener("change", () => {
   setFileLabel(videoImageInput, imageFileNameNode, "Ningun archivo");
@@ -360,7 +389,7 @@ videoForm.addEventListener("submit", async (event) => {
   }
 
   renderVideoPreview();
-  setVideoStatus("Generando video MP4. Esto puede tardar un poco...", "");
+  setVideoStatus("Generando video MP4. Esto puede tardar un poco...");
   videoPreviewButton.disabled = true;
   videoSubmitButton.disabled = true;
 
@@ -410,14 +439,19 @@ videoForm.addEventListener("submit", async (event) => {
   }
 });
 
+attachAudioConverter(youtubeElements);
+attachAudioConverter(soundcloudElements);
+
 loadFormats()
   .then(() => {
-    setStatus("Esperando un link valido.");
+    setNodeStatus(youtubeElements.statusNode, youtubeElements.emptyMessage);
+    setNodeStatus(soundcloudElements.statusNode, soundcloudElements.emptyMessage);
     setVideoStatus("Sube una imagen y un audio para montar el video.");
     refreshRecent();
   })
   .catch((error) => {
-    setStatus(`No se pudieron cargar las calidades: ${error.message}`, "error");
+    setNodeStatus(youtubeElements.statusNode, `No se pudieron cargar las calidades: ${error.message}`, "error");
+    setNodeStatus(soundcloudElements.statusNode, `No se pudieron cargar las calidades: ${error.message}`, "error");
     setVideoStatus(`No se pudieron cargar los formatos: ${error.message}`, "error");
     refreshRecent();
   });

@@ -78,6 +78,50 @@
 
       <div class="section-separator" aria-hidden="true"></div>
 
+      <section class="hero hero-secondary">
+        <div class="hero-copy">
+          <span class="eyebrow">MP3</span>
+          <h2>SoundCloud a MP3.</h2>
+          <p class="lede">Pega el link y descarga.</p>
+        </div>
+
+        <div class="converter-card">
+          <form id="soundcloud-form" class="converter-form">
+            <label class="field">
+              <span>Link de SoundCloud</span>
+              <input
+                id="soundcloud-url"
+                name="url"
+                type="url"
+                placeholder="https://soundcloud.com/..."
+                autocomplete="off"
+                required
+              />
+            </label>
+
+            <div class="controls">
+              <label class="field field-compact">
+                <span>Calidad</span>
+                <select id="soundcloud-quality" name="quality"></select>
+              </label>
+              <button id="soundcloud-preview-button" type="button" class="ghost-button">Previsualizar</button>
+              <button id="soundcloud-download-button" type="submit" class="primary-button">Descargar MP3</button>
+            </div>
+          </form>
+
+          <p id="soundcloud-status" class="status">Esperando un link de SoundCloud.</p>
+
+          <section id="soundcloud-preview" class="preview preview-empty">
+            <div class="preview-placeholder">
+              <div class="preview-icon"></div>
+              <p>La ficha de la pista aparecera aqui.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <div class="section-separator" aria-hidden="true"></div>
+
       <section class="studio">
         <div class="studio-copy">
           <span class="eyebrow">MP4</span>

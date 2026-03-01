@@ -202,6 +202,11 @@ body {
   color: var(--beige);
 }
 
+.recent-card[data-accent="soundcloud"] .recent-fallback {
+  background: linear-gradient(145deg, #a56f48, var(--vanilla-custard));
+  color: #3a2414;
+}
+
 .recent-body {
   display: flex;
   min-width: 0;
@@ -246,6 +251,14 @@ body {
   grid-template-columns: 0.72fr 1.28fr;
   gap: 28px;
   align-items: start;
+}
+
+.hero-secondary .hero-copy::before {
+  background: radial-gradient(circle, rgba(143, 92, 56, 0.14), transparent 70%);
+}
+
+.hero-secondary .converter-card::before {
+  background: radial-gradient(circle, rgba(217, 195, 154, 0.14), transparent 70%);
 }
 
 .hero-copy,
@@ -299,6 +312,14 @@ h2 {
 h1 {
   margin-top: 14px;
   font-size: clamp(1.95rem, 3.3vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.06em;
+  color: var(--beige);
+}
+
+.hero-copy h2 {
+  margin-top: 14px;
+  font-size: clamp(1.8rem, 3vw, 2.7rem);
   line-height: 1;
   letter-spacing: -0.06em;
   color: var(--beige);
@@ -469,6 +490,19 @@ button:disabled {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.preview-cover-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 252px;
+  padding: 24px;
+  background: linear-gradient(145deg, var(--coffee-bean), var(--toffee-brown));
+  color: var(--beige);
+  font: 800 1rem/1.2 "Space Grotesk", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .preview-body {
