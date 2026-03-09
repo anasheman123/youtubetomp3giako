@@ -20,6 +20,12 @@ const DATA_DIR = path.join(__dirname, "data");
 const RECENT_FILE = path.join(DATA_DIR, "recent-conversions.json");
 const PROJECTS_FILE = path.join(DATA_DIR, "projects.json");
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
+const YTDLP_COOKIES_FILE = String(process.env.YTDLP_COOKIES_FILE || "").trim();
+const YTDLP_CLIENT = String(process.env.YTDLP_CLIENT || "android").trim();
+const YTDLP_USER_AGENT = String(
+  process.env.YTDLP_USER_AGENT ||
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+).trim();
 const RECENT_LIMIT = Number.parseInt(process.env.RECENT_LIMIT || "60", 10);
 const RECENT_RETENTION_DAYS = Number.parseInt(process.env.RECENT_RETENTION_DAYS || "30", 10);
 const RECENT_RESPONSE_DEFAULT = Number.parseInt(process.env.RECENT_RESPONSE_DEFAULT || "12", 10);
@@ -276,14 +282,31 @@ async function resolvePinterestImage(pinterestUrl) {
 }
 
 async function getVideoInfo(url) {
-  return youtubedl(url, {
+  return youtubedl(url, buildYtdlpOptions({
     dumpSingleJson: true,
+    preferFreeFormats: true,
+    skipDownload: true,
+  }));
+}
+
+function buildYtdlpOptions(extraOptions = {}) {
+  const options = {
     noCheckCertificates: true,
     noWarnings: true,
     noPlaylist: true,
-    preferFreeFormats: true,
-    skipDownload: true,
-  });
+    userAgent: YTDLP_USER_AGENT,
+    ...extraOptions,
+  };
+
+  if (YTDLP_CLIENT) {
+    options.extractorArgs = [`youtube:player_client=${YTDLP_CLIENT}`];
+  }
+
+  if (YTDLP_COOKIES_FILE) {
+    options.cookies = YTDLP_COOKIES_FILE;
+  }
+
+  return options;
 }
 
 function getTemplateById(templateId) {
@@ -403,14 +426,11 @@ async function handleAudioConvert(req, res, source) {
     const details = await getVideoInfo(url);
     const title = sanitizeFilename(details.title || "audio");
 
-    await youtubedl(url, {
+    await youtubedl(url, buildYtdlpOptions({
       format: "bestaudio/best",
       ffmpegLocation: ffmpegPath,
-      noCheckCertificates: true,
-      noWarnings: true,
-      noPlaylist: true,
       output: sourceTemplate,
-    });
+    }));
 
     const files = await fs.readdir(tempDir);
     const sourceName = files.find((file) => file.startsWith("source."));
@@ -479,14 +499,11 @@ async function handleUniversalAudioConvert(req, res) {
     const platform = detectPlatform(url, details);
     const title = sanitizeFilename(details.title || "audio");
 
-    await youtubedl(url, {
+    await youtubedl(url, buildYtdlpOptions({
       format: "bestaudio/best",
       ffmpegLocation: ffmpegPath,
-      noCheckCertificates: true,
-      noWarnings: true,
-      noPlaylist: true,
       output: sourceTemplate,
-    });
+    }));
 
     const files = await fs.readdir(tempDir);
     const sourceName = files.find((file) => file.startsWith("source."));
@@ -543,15 +560,12 @@ async function handleVideoDownload(req, res) {
     const title = sanitizeFilename(details.title || "video");
     const platform = detectPlatform(url, details);
 
-    await youtubedl(url, {
+    await youtubedl(url, buildYtdlpOptions({
       format: "bestvideo+bestaudio/best",
       mergeOutputFormat: "mp4",
       ffmpegLocation: ffmpegPath,
-      noCheckCertificates: true,
-      noWarnings: true,
-      noPlaylist: true,
       output: outputTemplate,
-    });
+    }));
 
     const files = await fs.readdir(tempDir);
     const sourceName = files.find((file) => file.startsWith("video."));

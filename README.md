@@ -56,6 +56,31 @@ Rutas utiles:
 - `DELETE /api/recent`  
   Si defines `ADMIN_TOKEN`, debes enviar header `x-admin-token: TU_TOKEN`.
 
+## YouTube bloqueado en VPS (Sign in to confirm you're not a bot)
+
+Si aparece ese error, configura cookies para yt-dlp:
+
+1. Exporta `cookies.txt` de YouTube desde tu navegador (formato Netscape).
+2. Sube el archivo al servidor, por ejemplo:
+
+```bash
+scp cookies.txt deploy@TU_IP:/opt/gtubeversor/data/youtube-cookies.txt
+```
+
+3. En `/opt/gtubeversor/.env` agrega:
+
+```bash
+YTDLP_COOKIES_FILE=/opt/gtubeversor/data/youtube-cookies.txt
+YTDLP_CLIENT=android
+```
+
+4. Reinicia:
+
+```bash
+cd /opt/gtubeversor
+pm2 reload gtubeversor --update-env
+```
+
 ## macOS
 
 Si bajas el ZIP del repo en Mac, puedes usar `GtubeVersor.command`.
