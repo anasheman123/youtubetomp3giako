@@ -283,10 +283,23 @@ async function resolvePinterestImage(pinterestUrl) {
 }
 
 async function getVideoInfo(url) {
-  return youtubedl(url, buildYtdlpOptions({
-    dumpSingleJson: true,
-    skipDownload: true,
-  }));
+  try {
+    return await youtubedl(url, buildYtdlpOptions({
+      dumpSingleJson: true,
+      skipDownload: true,
+      format: "b",
+    }));
+  } catch (error) {
+    const message = String(error?.message || error);
+    if (!message.includes("Requested format is not available")) {
+      throw error;
+    }
+
+    return youtubedl(url, buildYtdlpOptions({
+      dumpSingleJson: true,
+      skipDownload: true,
+    }));
+  }
 }
 
 function buildYtdlpOptions(extraOptions = {}) {
@@ -294,6 +307,7 @@ function buildYtdlpOptions(extraOptions = {}) {
     noCheckCertificates: true,
     noWarnings: true,
     noPlaylist: true,
+    geoBypass: true,
     userAgent: YTDLP_USER_AGENT,
     ...extraOptions,
   };
