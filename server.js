@@ -22,7 +22,7 @@ const RECENT_FILE = path.join(DATA_DIR, "recent-conversions.json");
 const PROJECTS_FILE = path.join(DATA_DIR, "projects.json");
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 const YTDLP_COOKIES_FILE = String(process.env.YTDLP_COOKIES_FILE || "").trim();
-const YTDLP_CLIENT = String(process.env.YTDLP_CLIENT || "android").trim();
+const YTDLP_CLIENT = String(process.env.YTDLP_CLIENT ?? "").trim();
 const YTDLP_USER_AGENT = String(
   process.env.YTDLP_USER_AGENT ||
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
@@ -285,7 +285,6 @@ async function resolvePinterestImage(pinterestUrl) {
 async function getVideoInfo(url) {
   return youtubedl(url, buildYtdlpOptions({
     dumpSingleJson: true,
-    preferFreeFormats: true,
     skipDownload: true,
   }));
 }
