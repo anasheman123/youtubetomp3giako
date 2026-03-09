@@ -30,6 +30,7 @@ const YTDLP_USER_AGENT = String(
   process.env.YTDLP_USER_AGENT ||
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
 ).trim();
+const YTDLP_PROXY = String(process.env.YTDLP_PROXY || "").trim();
 const youtubedl = YTDLP_BINARY ? youtubedlFactory.create(YTDLP_BINARY) : youtubedlFactory;
 const RECENT_LIMIT = Number.parseInt(process.env.RECENT_LIMIT || "60", 10);
 const RECENT_RETENTION_DAYS = Number.parseInt(process.env.RECENT_RETENTION_DAYS || "30", 10);
@@ -301,6 +302,7 @@ async function getVideoInfo(url) {
 function buildYtdlpOptions(extraOptions = {}, runtime = {}) {
   const withCookies = runtime.withCookies !== false;
   const withClient = runtime.withClient !== false;
+  const withProxy = runtime.withProxy !== false;
   const clientOverride = String(runtime.clientOverride ?? "").trim();
   const chosenClient = clientOverride || YTDLP_CLIENT;
   const options = {
@@ -321,6 +323,10 @@ function buildYtdlpOptions(extraOptions = {}, runtime = {}) {
     options.cookies = YTDLP_COOKIES_FILE;
   }
 
+  if (withProxy && YTDLP_PROXY) {
+    options.proxy = YTDLP_PROXY;
+  }
+
   return options;
 }
 
@@ -339,29 +345,45 @@ function isRetryableYtdlpError(message) {
 function buildAttemptPlan(extraOptions = {}, behavior = {}) {
   const includeNoFormatFallback = behavior.includeNoFormatFallback === true;
   const includeCookielessFallback = behavior.includeCookielessFallback !== false;
+  const includeNoProxyFallback = YTDLP_PROXY.length > 0;
   const attempts = [
-    { withClient: true, withCookies: true },
-    { withClient: false, withCookies: true },
+    { withClient: true, withCookies: true, withProxy: true },
+    { withClient: false, withCookies: true, withProxy: true },
   ];
 
   if (includeCookielessFallback) {
-    attempts.push({ withClient: true, withCookies: false });
-    attempts.push({ withClient: false, withCookies: false });
+    attempts.push({ withClient: true, withCookies: false, withProxy: true });
+    attempts.push({ withClient: false, withCookies: false, withProxy: true });
   }
 
-  attempts.push({ withClient: true, withCookies: true, clientOverride: "web" });
-  attempts.push({ withClient: true, withCookies: true, clientOverride: "ios" });
+  attempts.push({ withClient: true, withCookies: true, withProxy: true, clientOverride: "web" });
+  attempts.push({ withClient: true, withCookies: true, withProxy: true, clientOverride: "ios" });
 
   if (includeNoFormatFallback && Object.prototype.hasOwnProperty.call(extraOptions, "format")) {
-    attempts.push({ withClient: false, withCookies: true, dropFormat: true });
+    attempts.push({ withClient: false, withCookies: true, withProxy: true, dropFormat: true });
     if (includeCookielessFallback) {
-      attempts.push({ withClient: false, withCookies: false, dropFormat: true });
+      attempts.push({ withClient: false, withCookies: false, withProxy: true, dropFormat: true });
+    }
+  }
+
+  if (includeNoProxyFallback) {
+    attempts.push({ withClient: true, withCookies: true, withProxy: false });
+    attempts.push({ withClient: false, withCookies: true, withProxy: false });
+    if (includeCookielessFallback) {
+      attempts.push({ withClient: true, withCookies: false, withProxy: false });
+      attempts.push({ withClient: false, withCookies: false, withProxy: false });
+    }
+    if (includeNoFormatFallback && Object.prototype.hasOwnProperty.call(extraOptions, "format")) {
+      attempts.push({ withClient: false, withCookies: true, withProxy: false, dropFormat: true });
+      if (includeCookielessFallback) {
+        attempts.push({ withClient: false, withCookies: false, withProxy: false, dropFormat: true });
+      }
     }
   }
 
   const seen = new Set();
   return attempts.filter((attempt) => {
-    const key = `${attempt.withClient}-${attempt.withCookies}-${attempt.clientOverride || ""}-${attempt.dropFormat ? "drop" : "keep"}`;
+    const key = `${attempt.withClient}-${attempt.withCookies}-${attempt.withProxy !== false}-${attempt.clientOverride || ""}-${attempt.dropFormat ? "drop" : "keep"}`;
     if (seen.has(key)) {
       return false;
     }

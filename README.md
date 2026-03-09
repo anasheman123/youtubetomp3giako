@@ -73,6 +73,8 @@ scp cookies.txt deploy@TU_IP:/opt/gtubeversor/data/youtube-cookies.txt
 YTDLP_COOKIES_FILE=/opt/gtubeversor/data/youtube-cookies.txt
 YTDLP_CLIENT=android
 YTDLP_BINARY=/usr/bin/yt-dlp
+# Opcional: proxy (Webshare u otro)
+# YTDLP_PROXY=http://usuario:password@host:port
 ```
 
 4. Reinicia:
