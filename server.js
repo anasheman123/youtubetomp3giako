@@ -3,6 +3,7 @@ const path = require("path");
 const os = require("os");
 const fs = require("fs/promises");
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = require("fs");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const { randomUUID } = require("crypto");
 const { execFile } = require("child_process");
 const ffmpeg = require("fluent-ffmpeg");
