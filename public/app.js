@@ -9,6 +9,8 @@ const state = {
 const navLinks = [...document.querySelectorAll(".nav-link")];
 const panels = [...document.querySelectorAll(".tool-panel")];
 const recentCarouselNode = document.querySelector("#recent-carousel");
+const recentClearButton = document.querySelector("#recent-clear");
+const recentStatusNode = document.querySelector("#recent-status");
 
 const youtubeElements = {
   form: document.querySelector("#converter-form"),
@@ -78,6 +80,12 @@ function setStatus(node, message, tone = "") {
     node.dataset.tone = tone;
   } else {
     delete node.dataset.tone;
+  }
+}
+
+function setRecentStatus(message) {
+  if (recentStatusNode) {
+    recentStatusNode.textContent = message;
   }
 }
 
@@ -202,9 +210,39 @@ async function refreshRecent() {
     const response = await fetch("/api/recent");
     const data = await response.json();
     renderRecent(Array.isArray(data.items) ? data.items : []);
+    setRecentStatus("");
   } catch (_error) {
     recentCarouselNode.classList.add("recent-empty");
     recentCarouselNode.innerHTML = `<div class="recent-placeholder">No se pudo cargar el historial.</div>`;
+    setRecentStatus("Error");
+  }
+}
+
+async function clearRecent() {
+  if (!recentClearButton) {
+    return;
+  }
+
+  if (!window.confirm("Quieres limpiar las ultimas conversiones?")) {
+    return;
+  }
+
+  recentClearButton.disabled = true;
+  setRecentStatus("Limpiando...");
+
+  try {
+    const response = await fetch("/api/recent", { method: "DELETE" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || "No se pudo limpiar.");
+    }
+    await refreshRecent();
+    setRecentStatus("Listo");
+  } catch (error) {
+    setRecentStatus("Error");
+  } finally {
+    recentClearButton.disabled = false;
+    window.setTimeout(() => setRecentStatus(""), 2400);
   }
 }
 
@@ -559,3 +597,7 @@ loadFormats()
     setStatus(videoNodes.status, `No se pudieron cargar los formatos: ${error.message}`, "error");
     await refreshRecent();
   });
+
+if (recentClearButton) {
+  recentClearButton.addEventListener("click", clearRecent);
+}

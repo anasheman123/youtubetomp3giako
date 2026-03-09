@@ -20,6 +20,9 @@ const DATA_DIR = path.join(__dirname, "data");
 const RECENT_FILE = path.join(DATA_DIR, "recent-conversions.json");
 const PROJECTS_FILE = path.join(DATA_DIR, "projects.json");
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
+const RECENT_LIMIT = Number.parseInt(process.env.RECENT_LIMIT || "60", 10);
+const RECENT_RETENTION_DAYS = Number.parseInt(process.env.RECENT_RETENTION_DAYS || "30", 10);
+const RECENT_RESPONSE_DEFAULT = Number.parseInt(process.env.RECENT_RESPONSE_DEFAULT || "12", 10);
 
 const AUDIO_FORMATS = [
   { quality: "320k", label: "Studio", note: "Mayor peso, mejor fidelidad" },
@@ -57,9 +60,18 @@ const VISUAL_TEMPLATES = [
   },
 ];
 
-const DRAW_TEXT_FONT = existsSync("C:\\Windows\\Fonts\\arial.ttf")
-  ? "C:/Windows/Fonts/arial.ttf"
-  : null;
+function resolveDrawTextFont() {
+  const candidates = [
+    process.env.DRAW_TEXT_FONT || "",
+    "C:/Windows/Fonts/arial.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+  ].filter(Boolean);
+
+  return candidates.find((fontPath) => existsSync(fontPath)) || null;
+}
+
+const DRAW_TEXT_FONT = resolveDrawTextFont();
 
 mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use(express.json({ limit: "2mb" }));
@@ -102,7 +114,9 @@ function loadRecentConversions() {
     const raw = readFileSync(RECENT_FILE, "utf8");
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      recentConversions.push(...parsed.slice(0, 12));
+      recentConversions.push(...parsed);
+      normalizeRecentConversions();
+      persistRecentConversions();
     }
   } catch (_error) {
     recentConversions.length = 0;
@@ -142,11 +156,27 @@ function pushRecentConversion(entry) {
     ...entry,
   });
 
-  if (recentConversions.length > 12) {
-    recentConversions.length = 12;
-  }
-
+  normalizeRecentConversions();
   persistRecentConversions();
+}
+
+function normalizeRecentConversions() {
+  const now = Date.now();
+  const retentionMs = Math.max(1, RECENT_RETENTION_DAYS) * 24 * 60 * 60 * 1000;
+  const hardLimit = Math.max(1, RECENT_LIMIT);
+
+  const cleaned = recentConversions
+    .filter((item) => item && typeof item === "object")
+    .filter((item) => typeof item.id === "string" && typeof item.createdAt === "string")
+    .filter((item) => {
+      const timestamp = Date.parse(item.createdAt);
+      return Number.isFinite(timestamp) && now - timestamp <= retentionMs;
+    })
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, hardLimit);
+
+  recentConversions.length = 0;
+  recentConversions.push(...cleaned);
 }
 
 function pushProject(entry) {
@@ -831,7 +861,23 @@ app.get("/api/formats", (_req, res) => {
 });
 
 app.get("/api/recent", (_req, res) => {
-  res.json({ items: recentConversions });
+  const requestedLimit = Number.parseInt(String(_req.query?.limit || RECENT_RESPONSE_DEFAULT), 10);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : RECENT_RESPONSE_DEFAULT;
+  res.json({ items: recentConversions.slice(0, limit), total: recentConversions.length, limit });
+});
+
+app.delete("/api/recent", (req, res) => {
+  const adminToken = String(process.env.ADMIN_TOKEN || "").trim();
+  if (adminToken) {
+    const provided = String(req.headers["x-admin-token"] || "");
+    if (provided !== adminToken) {
+      return res.status(401).json({ error: "Token invalido." });
+    }
+  }
+
+  recentConversions.length = 0;
+  persistRecentConversions();
+  return res.json({ ok: true, total: recentConversions.length });
 });
 
 app.get("/api/projects", (_req, res) => {
