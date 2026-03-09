@@ -31,6 +31,10 @@ const YTDLP_USER_AGENT = String(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
 ).trim();
 const YTDLP_PROXY = String(process.env.YTDLP_PROXY || "").trim();
+const YTDLP_PROXY_FALLBACKS = String(process.env.YTDLP_PROXY_FALLBACKS || "")
+  .split(/[\r\n,]+/)
+  .map((item) => item.trim())
+  .filter(Boolean);
 const youtubedl = YTDLP_BINARY ? youtubedlFactory.create(YTDLP_BINARY) : youtubedlFactory;
 const RECENT_LIMIT = Number.parseInt(process.env.RECENT_LIMIT || "60", 10);
 const RECENT_RETENTION_DAYS = Number.parseInt(process.env.RECENT_RETENTION_DAYS || "30", 10);
@@ -303,6 +307,7 @@ function buildYtdlpOptions(extraOptions = {}, runtime = {}) {
   const withCookies = runtime.withCookies !== false;
   const withClient = runtime.withClient !== false;
   const withProxy = runtime.withProxy !== false;
+  const proxyOverride = String(runtime.proxyOverride || "").trim();
   const clientOverride = String(runtime.clientOverride ?? "").trim();
   const chosenClient = clientOverride || YTDLP_CLIENT;
   const options = {
@@ -323,8 +328,8 @@ function buildYtdlpOptions(extraOptions = {}, runtime = {}) {
     options.cookies = YTDLP_COOKIES_FILE;
   }
 
-  if (withProxy && YTDLP_PROXY) {
-    options.proxy = YTDLP_PROXY;
+  if (withProxy && (proxyOverride || YTDLP_PROXY)) {
+    options.proxy = proxyOverride || YTDLP_PROXY;
   }
 
   return options;
@@ -345,24 +350,24 @@ function isRetryableYtdlpError(message) {
 function buildAttemptPlan(extraOptions = {}, behavior = {}) {
   const includeNoFormatFallback = behavior.includeNoFormatFallback === true;
   const includeCookielessFallback = behavior.includeCookielessFallback !== false;
-  const includeNoProxyFallback = YTDLP_PROXY.length > 0;
+  const includeNoProxyFallback = behavior.includeNoProxyFallback !== false;
   const attempts = [
-    { withClient: true, withCookies: true, withProxy: true },
-    { withClient: false, withCookies: true, withProxy: true },
+    { withClient: true, withCookies: true },
+    { withClient: false, withCookies: true },
   ];
 
   if (includeCookielessFallback) {
-    attempts.push({ withClient: true, withCookies: false, withProxy: true });
-    attempts.push({ withClient: false, withCookies: false, withProxy: true });
+    attempts.push({ withClient: true, withCookies: false });
+    attempts.push({ withClient: false, withCookies: false });
   }
 
-  attempts.push({ withClient: true, withCookies: true, withProxy: true, clientOverride: "web" });
-  attempts.push({ withClient: true, withCookies: true, withProxy: true, clientOverride: "ios" });
+  attempts.push({ withClient: true, withCookies: true, clientOverride: "web" });
+  attempts.push({ withClient: true, withCookies: true, clientOverride: "ios" });
 
   if (includeNoFormatFallback && Object.prototype.hasOwnProperty.call(extraOptions, "format")) {
-    attempts.push({ withClient: false, withCookies: true, withProxy: true, dropFormat: true });
+    attempts.push({ withClient: false, withCookies: true, dropFormat: true });
     if (includeCookielessFallback) {
-      attempts.push({ withClient: false, withCookies: false, withProxy: true, dropFormat: true });
+      attempts.push({ withClient: false, withCookies: false, dropFormat: true });
     }
   }
 
@@ -393,10 +398,34 @@ function buildAttemptPlan(extraOptions = {}, behavior = {}) {
 }
 
 async function runYtdlpWithFallback(url, extraOptions = {}, behavior = {}) {
-  const attempts = buildAttemptPlan(extraOptions, behavior);
+  const proxyCandidates = [YTDLP_PROXY, ...YTDLP_PROXY_FALLBACKS].filter(Boolean);
+  const proxyAttempts = buildAttemptPlan(extraOptions, { ...behavior, includeNoProxyFallback: false });
+  const directAttempts = buildAttemptPlan(extraOptions, { ...behavior, includeNoProxyFallback: true }).filter(
+    (attempt) => attempt.withProxy === false,
+  );
   let lastError = null;
 
-  for (const attempt of attempts) {
+  if (proxyCandidates.length) {
+    for (const proxy of proxyCandidates) {
+      for (const attempt of proxyAttempts) {
+        const mergedOptions = { ...extraOptions };
+        if (attempt.dropFormat) {
+          delete mergedOptions.format;
+        }
+
+        try {
+          return await youtubedl(url, buildYtdlpOptions(mergedOptions, { ...attempt, withProxy: true, proxyOverride: proxy }));
+        } catch (error) {
+          lastError = error;
+          if (!isRetryableYtdlpError(error?.message || error)) {
+            throw error;
+          }
+        }
+      }
+    }
+  }
+
+  for (const attempt of directAttempts) {
     const mergedOptions = { ...extraOptions };
     if (attempt.dropFormat) {
       delete mergedOptions.format;

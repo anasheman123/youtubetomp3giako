@@ -75,6 +75,8 @@ YTDLP_CLIENT=android
 YTDLP_BINARY=/usr/bin/yt-dlp
 # Opcional: proxy (Webshare u otro)
 # YTDLP_PROXY=http://usuario:password@host:port
+# Opcional: fallbacks si falla el principal
+# YTDLP_PROXY_FALLBACKS=http://u:p@ip2:port,http://u:p@ip3:port
 ```
 
 4. Reinicia:
