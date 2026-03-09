@@ -31,10 +31,15 @@ const YTDLP_USER_AGENT = String(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
 ).trim();
 const YTDLP_PROXY = String(process.env.YTDLP_PROXY || "").trim();
+const YTDLP_PROXY_POOL = String(process.env.YTDLP_PROXY_POOL || "")
+  .split(/[\r\n,]+/)
+  .map((item) => item.trim())
+  .filter(Boolean);
 const youtubedl = YTDLP_BINARY ? youtubedlFactory.create(YTDLP_BINARY) : youtubedlFactory;
 const RECENT_LIMIT = Number.parseInt(process.env.RECENT_LIMIT || "60", 10);
 const RECENT_RETENTION_DAYS = Number.parseInt(process.env.RECENT_RETENTION_DAYS || "30", 10);
 const RECENT_RESPONSE_DEFAULT = Number.parseInt(process.env.RECENT_RESPONSE_DEFAULT || "12", 10);
+let proxyCursor = 0;
 
 const AUDIO_FORMATS = [
   { quality: "320k", label: "Studio", note: "Mayor peso, mejor fidelidad" },
@@ -303,6 +308,7 @@ function buildYtdlpOptions(extraOptions = {}, runtime = {}) {
   const withCookies = runtime.withCookies !== false;
   const withClient = runtime.withClient !== false;
   const withProxy = runtime.withProxy !== false;
+  const proxyOverride = String(runtime.proxyOverride || "").trim();
   const clientOverride = String(runtime.clientOverride ?? "").trim();
   const chosenClient = clientOverride || YTDLP_CLIENT;
   const options = {
@@ -323,11 +329,21 @@ function buildYtdlpOptions(extraOptions = {}, runtime = {}) {
     options.cookies = YTDLP_COOKIES_FILE;
   }
 
-  if (withProxy && YTDLP_PROXY) {
-    options.proxy = YTDLP_PROXY;
+  if (withProxy && (proxyOverride || YTDLP_PROXY)) {
+    options.proxy = proxyOverride || YTDLP_PROXY;
   }
 
   return options;
+}
+
+function getNextProxyFromPool() {
+  if (!YTDLP_PROXY_POOL.length) {
+    return "";
+  }
+
+  const proxy = YTDLP_PROXY_POOL[proxyCursor % YTDLP_PROXY_POOL.length];
+  proxyCursor += 1;
+  return proxy;
 }
 
 function isRetryableYtdlpError(message) {
@@ -345,7 +361,7 @@ function isRetryableYtdlpError(message) {
 function buildAttemptPlan(extraOptions = {}, behavior = {}) {
   const includeNoFormatFallback = behavior.includeNoFormatFallback === true;
   const includeCookielessFallback = behavior.includeCookielessFallback !== false;
-  const includeNoProxyFallback = YTDLP_PROXY.length > 0;
+  const includeNoProxyFallback = YTDLP_PROXY.length > 0 || YTDLP_PROXY_POOL.length > 0;
   const attempts = [
     { withClient: true, withCookies: true, withProxy: true },
     { withClient: false, withCookies: true, withProxy: true },
@@ -393,6 +409,11 @@ function buildAttemptPlan(extraOptions = {}, behavior = {}) {
 }
 
 async function runYtdlpWithFallback(url, extraOptions = {}, behavior = {}) {
+  const proxyFromPool = getNextProxyFromPool();
+  if (proxyFromPool) {
+    behavior.proxyOverride = proxyFromPool;
+  }
+
   const attempts = buildAttemptPlan(extraOptions, behavior);
   let lastError = null;
 
@@ -403,7 +424,7 @@ async function runYtdlpWithFallback(url, extraOptions = {}, behavior = {}) {
     }
 
     try {
-      return await youtubedl(url, buildYtdlpOptions(mergedOptions, attempt));
+      return await youtubedl(url, buildYtdlpOptions(mergedOptions, { ...attempt, proxyOverride: behavior.proxyOverride }));
     } catch (error) {
       lastError = error;
       if (!isRetryableYtdlpError(error?.message || error)) {
