@@ -868,11 +868,13 @@ app.get("/api/recent", (_req, res) => {
 
 app.delete("/api/recent", (req, res) => {
   const adminToken = String(process.env.ADMIN_TOKEN || "").trim();
-  if (adminToken) {
-    const provided = String(req.headers["x-admin-token"] || "");
-    if (provided !== adminToken) {
-      return res.status(401).json({ error: "Token invalido." });
-    }
+  if (!adminToken) {
+    return res.status(403).json({ error: "Ruta deshabilitada en este entorno." });
+  }
+
+  const provided = String(req.headers["x-admin-token"] || "");
+  if (provided !== adminToken) {
+    return res.status(401).json({ error: "Token invalido." });
   }
 
   recentConversions.length = 0;

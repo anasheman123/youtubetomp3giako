@@ -697,30 +697,8 @@ select:disabled {
 .recent-viewport {
   position: relative;
   overflow: hidden;
-  padding: 28px 0 2px;
+  padding: 2px 0;
   min-width: 0;
-}
-
-.recent-actions {
-  position: absolute;
-  top: 0;
-  right: 6px;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.recent-clear-button {
-  padding: 7px 10px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-}
-
-.recent-status {
-  color: var(--muted);
-  font: 600 0.72rem/1 "Manrope", sans-serif;
-  min-width: 54px;
 }
 
 .recent-viewport::before,
@@ -748,6 +726,9 @@ select:disabled {
   display: flex;
   width: max-content;
   gap: 14px;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 .recent-animated .recent-track {
