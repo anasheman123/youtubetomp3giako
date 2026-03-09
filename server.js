@@ -287,26 +287,22 @@ async function resolvePinterestImage(pinterestUrl) {
 }
 
 async function getVideoInfo(url) {
-  try {
-    return await youtubedl(url, buildYtdlpOptions({
+  return runYtdlpWithFallback(
+    url,
+    {
       dumpSingleJson: true,
       skipDownload: true,
       format: "b",
-    }));
-  } catch (error) {
-    const message = String(error?.message || error);
-    if (!message.includes("Requested format is not available")) {
-      throw error;
-    }
-
-    return youtubedl(url, buildYtdlpOptions({
-      dumpSingleJson: true,
-      skipDownload: true,
-    }));
-  }
+    },
+    { includeNoFormatFallback: true },
+  );
 }
 
-function buildYtdlpOptions(extraOptions = {}) {
+function buildYtdlpOptions(extraOptions = {}, runtime = {}) {
+  const withCookies = runtime.withCookies !== false;
+  const withClient = runtime.withClient !== false;
+  const clientOverride = String(runtime.clientOverride ?? "").trim();
+  const chosenClient = clientOverride || YTDLP_CLIENT;
   const options = {
     ignoreConfig: true,
     noCheckCertificates: true,
@@ -317,15 +313,84 @@ function buildYtdlpOptions(extraOptions = {}) {
     ...extraOptions,
   };
 
-  if (YTDLP_CLIENT) {
-    options.extractorArgs = [`youtube:player_client=${YTDLP_CLIENT}`];
+  if (withClient && chosenClient) {
+    options.extractorArgs = [`youtube:player_client=${chosenClient}`];
   }
 
-  if (YTDLP_COOKIES_FILE) {
+  if (withCookies && YTDLP_COOKIES_FILE) {
     options.cookies = YTDLP_COOKIES_FILE;
   }
 
   return options;
+}
+
+function isRetryableYtdlpError(message) {
+  const text = String(message || "").toLowerCase();
+  return (
+    text.includes("sign in to confirm you're not a bot") ||
+    text.includes("requested format is not available") ||
+    text.includes("only images are available") ||
+    text.includes("signature extraction failed") ||
+    text.includes("some formats may be missing") ||
+    text.includes("video unavailable")
+  );
+}
+
+function buildAttemptPlan(extraOptions = {}, behavior = {}) {
+  const includeNoFormatFallback = behavior.includeNoFormatFallback === true;
+  const includeCookielessFallback = behavior.includeCookielessFallback !== false;
+  const attempts = [
+    { withClient: true, withCookies: true },
+    { withClient: false, withCookies: true },
+  ];
+
+  if (includeCookielessFallback) {
+    attempts.push({ withClient: true, withCookies: false });
+    attempts.push({ withClient: false, withCookies: false });
+  }
+
+  attempts.push({ withClient: true, withCookies: true, clientOverride: "web" });
+  attempts.push({ withClient: true, withCookies: true, clientOverride: "ios" });
+
+  if (includeNoFormatFallback && Object.prototype.hasOwnProperty.call(extraOptions, "format")) {
+    attempts.push({ withClient: false, withCookies: true, dropFormat: true });
+    if (includeCookielessFallback) {
+      attempts.push({ withClient: false, withCookies: false, dropFormat: true });
+    }
+  }
+
+  const seen = new Set();
+  return attempts.filter((attempt) => {
+    const key = `${attempt.withClient}-${attempt.withCookies}-${attempt.clientOverride || ""}-${attempt.dropFormat ? "drop" : "keep"}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+async function runYtdlpWithFallback(url, extraOptions = {}, behavior = {}) {
+  const attempts = buildAttemptPlan(extraOptions, behavior);
+  let lastError = null;
+
+  for (const attempt of attempts) {
+    const mergedOptions = { ...extraOptions };
+    if (attempt.dropFormat) {
+      delete mergedOptions.format;
+    }
+
+    try {
+      return await youtubedl(url, buildYtdlpOptions(mergedOptions, attempt));
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableYtdlpError(error?.message || error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError || new Error("No se pudo extraer el link.");
 }
 
 function getTemplateById(templateId) {
@@ -445,11 +510,15 @@ async function handleAudioConvert(req, res, source) {
     const details = await getVideoInfo(url);
     const title = sanitizeFilename(details.title || "audio");
 
-    await youtubedl(url, buildYtdlpOptions({
-      format: "bestaudio/best",
-      ffmpegLocation: ffmpegPath,
-      output: sourceTemplate,
-    }));
+    await runYtdlpWithFallback(
+      url,
+      {
+        format: "bestaudio/best",
+        ffmpegLocation: ffmpegPath,
+        output: sourceTemplate,
+      },
+      { includeNoFormatFallback: true },
+    );
 
     const files = await fs.readdir(tempDir);
     const sourceName = files.find((file) => file.startsWith("source."));
@@ -518,11 +587,15 @@ async function handleUniversalAudioConvert(req, res) {
     const platform = detectPlatform(url, details);
     const title = sanitizeFilename(details.title || "audio");
 
-    await youtubedl(url, buildYtdlpOptions({
-      format: "bestaudio/best",
-      ffmpegLocation: ffmpegPath,
-      output: sourceTemplate,
-    }));
+    await runYtdlpWithFallback(
+      url,
+      {
+        format: "bestaudio/best",
+        ffmpegLocation: ffmpegPath,
+        output: sourceTemplate,
+      },
+      { includeNoFormatFallback: true },
+    );
 
     const files = await fs.readdir(tempDir);
     const sourceName = files.find((file) => file.startsWith("source."));
@@ -579,12 +652,16 @@ async function handleVideoDownload(req, res) {
     const title = sanitizeFilename(details.title || "video");
     const platform = detectPlatform(url, details);
 
-    await youtubedl(url, buildYtdlpOptions({
-      format: "bestvideo+bestaudio/best",
-      mergeOutputFormat: "mp4",
-      ffmpegLocation: ffmpegPath,
-      output: outputTemplate,
-    }));
+    await runYtdlpWithFallback(
+      url,
+      {
+        format: "bestvideo+bestaudio/best",
+        mergeOutputFormat: "mp4",
+        ffmpegLocation: ffmpegPath,
+        output: outputTemplate,
+      },
+      { includeNoFormatFallback: true },
+    );
 
     const files = await fs.readdir(tempDir);
     const sourceName = files.find((file) => file.startsWith("video."));
