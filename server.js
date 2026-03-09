@@ -9,7 +9,7 @@ const { execFile } = require("child_process");
 const ffmpeg = require("fluent-ffmpeg");
 const ffmpegPath = require("ffmpeg-static");
 const multer = require("multer");
-const youtubedl = require("youtube-dl-exec");
+const youtubedlFactory = require("youtube-dl-exec");
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -23,10 +23,14 @@ const PROJECTS_FILE = path.join(DATA_DIR, "projects.json");
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 const YTDLP_COOKIES_FILE = String(process.env.YTDLP_COOKIES_FILE || "").trim();
 const YTDLP_CLIENT = String(process.env.YTDLP_CLIENT ?? "").trim();
+const YTDLP_BINARY = String(
+  process.env.YTDLP_BINARY || (existsSync("/usr/bin/yt-dlp") ? "/usr/bin/yt-dlp" : ""),
+).trim();
 const YTDLP_USER_AGENT = String(
   process.env.YTDLP_USER_AGENT ||
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
 ).trim();
+const youtubedl = YTDLP_BINARY ? youtubedlFactory.create(YTDLP_BINARY) : youtubedlFactory;
 const RECENT_LIMIT = Number.parseInt(process.env.RECENT_LIMIT || "60", 10);
 const RECENT_RETENTION_DAYS = Number.parseInt(process.env.RECENT_RETENTION_DAYS || "30", 10);
 const RECENT_RESPONSE_DEFAULT = Number.parseInt(process.env.RECENT_RESPONSE_DEFAULT || "12", 10);
