@@ -308,6 +308,7 @@ async function getVideoInfo(url) {
 
 function buildYtdlpOptions(extraOptions = {}) {
   const options = {
+    ignoreConfig: true,
     noCheckCertificates: true,
     noWarnings: true,
     noPlaylist: true,
