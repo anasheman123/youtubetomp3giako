@@ -53,8 +53,32 @@ Variables para gestionarlo:
 
 Rutas utiles:
 - `GET /api/recent?limit=20`
+- `GET /api/extractor-events?limit=20`
+- `GET /api/health`
 - `DELETE /api/recent`  
   Si defines `ADMIN_TOKEN`, debes enviar header `x-admin-token: TU_TOKEN`.
+
+## Alertas de extractor y salud del servidor
+
+Puedes activar notificaciones a Telegram cuando alguien use el extractor y recibir alertas si el servidor supera cierto uso de CPU.
+
+Variables nuevas en `.env`:
+
+```bash
+TELEGRAM_NOTIFICATIONS_ENABLED=true
+TELEGRAM_BOT_TOKEN=123456789:AA...
+TELEGRAM_CHAT_ID=5113823996
+CPU_ALERT_THRESHOLD_PERCENT=50
+CPU_ALERT_SUSTAINED_MINUTES=3
+CPU_SAMPLE_INTERVAL_MS=60000
+CPU_ALERT_COOLDOWN_MS=1800000
+```
+
+Que hace:
+- Cada conversion exitosa por el extractor registra un evento en `data/extractor-events.json`
+- Si Telegram esta activado, manda una notificacion con plataforma, tipo, titulo, URL e IP
+- El endpoint `GET /api/health` devuelve estado de la app, memoria, ultimo sample de CPU y ultimo uso del extractor
+- Si la CPU supera el umbral configurado durante varios minutos, envia una alerta a Telegram
 
 ## YouTube bloqueado en VPS (Sign in to confirm you're not a bot)
 

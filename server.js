@@ -16,9 +16,11 @@ ffmpeg.setFfmpegPath(ffmpegPath);
 const app = express();
 const PORT = process.env.PORT || 3020;
 const recentConversions = [];
+const extractorEvents = [];
 const savedProjects = [];
 const DATA_DIR = path.join(__dirname, "data");
 const RECENT_FILE = path.join(DATA_DIR, "recent-conversions.json");
+const EXTRACTOR_EVENTS_FILE = path.join(DATA_DIR, "extractor-events.json");
 const PROJECTS_FILE = path.join(DATA_DIR, "projects.json");
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 const YTDLP_COOKIES_FILE = String(process.env.YTDLP_COOKIES_FILE || "").trim();
@@ -39,6 +41,15 @@ const youtubedl = YTDLP_BINARY ? youtubedlFactory.create(YTDLP_BINARY) : youtube
 const RECENT_LIMIT = Number.parseInt(process.env.RECENT_LIMIT || "60", 10);
 const RECENT_RETENTION_DAYS = Number.parseInt(process.env.RECENT_RETENTION_DAYS || "30", 10);
 const RECENT_RESPONSE_DEFAULT = Number.parseInt(process.env.RECENT_RESPONSE_DEFAULT || "12", 10);
+const EXTRACTOR_EVENT_LIMIT = Number.parseInt(process.env.EXTRACTOR_EVENT_LIMIT || "200", 10);
+const EXTRACTOR_EVENT_RETENTION_DAYS = Number.parseInt(process.env.EXTRACTOR_EVENT_RETENTION_DAYS || "30", 10);
+const TELEGRAM_BOT_TOKEN = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
+const TELEGRAM_CHAT_ID = String(process.env.TELEGRAM_CHAT_ID || "").trim();
+const TELEGRAM_NOTIFICATIONS_ENABLED = String(process.env.TELEGRAM_NOTIFICATIONS_ENABLED || "false").trim() === "true";
+const CPU_ALERT_THRESHOLD_PERCENT = Number.parseFloat(process.env.CPU_ALERT_THRESHOLD_PERCENT || "50");
+const CPU_ALERT_SUSTAINED_MINUTES = Number.parseInt(process.env.CPU_ALERT_SUSTAINED_MINUTES || "3", 10);
+const CPU_SAMPLE_INTERVAL_MS = Number.parseInt(process.env.CPU_SAMPLE_INTERVAL_MS || "60000", 10);
+const CPU_ALERT_COOLDOWN_MS = Number.parseInt(process.env.CPU_ALERT_COOLDOWN_MS || "1800000", 10);
 
 const AUDIO_FORMATS = [
   { quality: "320k", label: "Studio", note: "Mayor peso, mejor fidelidad" },
@@ -75,6 +86,15 @@ const VISUAL_TEMPLATES = [
     text: "#f8f0e4",
   },
 ];
+
+const monitoringState = {
+  cpu: {
+    currentPercent: null,
+    lastSampleAt: null,
+    aboveThresholdStreak: 0,
+    lastAlertAt: 0,
+  },
+};
 
 function resolveDrawTextFont() {
   const candidates = [
@@ -121,6 +141,25 @@ function escapeHeaderFilename(value) {
   return value.replace(/"/g, "");
 }
 
+function maskSecret(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (value.length <= 8) {
+    return `${value.slice(0, 2)}***`;
+  }
+
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
+function getClientIp(req) {
+  const forwarded = String(req.headers["x-forwarded-for"] || "")
+    .split(",")[0]
+    .trim();
+  return forwarded || req.socket?.remoteAddress || "";
+}
+
 function loadRecentConversions() {
   try {
     if (!existsSync(RECENT_FILE)) {
@@ -139,9 +178,32 @@ function loadRecentConversions() {
   }
 }
 
+function loadExtractorEvents() {
+  try {
+    if (!existsSync(EXTRACTOR_EVENTS_FILE)) {
+      return;
+    }
+
+    const raw = readFileSync(EXTRACTOR_EVENTS_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      extractorEvents.push(...parsed);
+      normalizeExtractorEvents();
+      persistExtractorEvents();
+    }
+  } catch (_error) {
+    extractorEvents.length = 0;
+  }
+}
+
 function persistRecentConversions() {
   mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(RECENT_FILE, JSON.stringify(recentConversions, null, 2), "utf8");
+}
+
+function persistExtractorEvents() {
+  mkdirSync(DATA_DIR, { recursive: true });
+  writeFileSync(EXTRACTOR_EVENTS_FILE, JSON.stringify(extractorEvents, null, 2), "utf8");
 }
 
 function loadProjects() {
@@ -176,6 +238,17 @@ function pushRecentConversion(entry) {
   persistRecentConversions();
 }
 
+function pushExtractorEvent(entry) {
+  extractorEvents.unshift({
+    id: randomUUID(),
+    createdAt: new Date().toISOString(),
+    ...entry,
+  });
+
+  normalizeExtractorEvents();
+  persistExtractorEvents();
+}
+
 function normalizeRecentConversions() {
   const now = Date.now();
   const retentionMs = Math.max(1, RECENT_RETENTION_DAYS) * 24 * 60 * 60 * 1000;
@@ -193,6 +266,25 @@ function normalizeRecentConversions() {
 
   recentConversions.length = 0;
   recentConversions.push(...cleaned);
+}
+
+function normalizeExtractorEvents() {
+  const now = Date.now();
+  const retentionMs = Math.max(1, EXTRACTOR_EVENT_RETENTION_DAYS) * 24 * 60 * 60 * 1000;
+  const hardLimit = Math.max(1, EXTRACTOR_EVENT_LIMIT);
+
+  const cleaned = extractorEvents
+    .filter((item) => item && typeof item === "object")
+    .filter((item) => typeof item.id === "string" && typeof item.createdAt === "string")
+    .filter((item) => {
+      const timestamp = Date.parse(item.createdAt);
+      return Number.isFinite(timestamp) && now - timestamp <= retentionMs;
+    })
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, hardLimit);
+
+  extractorEvents.length = 0;
+  extractorEvents.push(...cleaned);
 }
 
 function pushProject(entry) {
@@ -242,6 +334,191 @@ async function fetchRemoteBytes(url) {
   const bytes = Buffer.from(await response.arrayBuffer());
   const contentType = response.headers.get("content-type") || "image/jpeg";
   return { bytes, contentType };
+}
+
+async function sendTelegramMessage(text) {
+  if (!TELEGRAM_NOTIFICATIONS_ENABLED || !TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    return false;
+  }
+
+  const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: TELEGRAM_CHAT_ID,
+      text,
+      disable_web_page_preview: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Telegram notify failed (${response.status}): ${details}`);
+  }
+
+  return true;
+}
+
+function buildExtractorNotification(event) {
+  const parts = [
+    "Uso del extractor detectado",
+    `Tipo: ${event.outputType.toUpperCase()}`,
+    `Plataforma: ${event.platform}`,
+  ];
+
+  if (event.qualityLabel) {
+    parts.push(`Calidad: ${event.qualityLabel}`);
+  }
+
+  if (event.title) {
+    parts.push(`Titulo: ${event.title}`);
+  }
+
+  if (event.url) {
+    parts.push(`URL: ${event.url}`);
+  }
+
+  if (event.ip) {
+    parts.push(`IP: ${event.ip}`);
+  }
+
+  return parts.join("\n");
+}
+
+function trackExtractorUsage(req, details) {
+  const event = {
+    route: details.route,
+    platform: details.platform,
+    outputType: details.outputType,
+    qualityLabel: details.qualityLabel || "",
+    title: details.title || "",
+    url: details.url || "",
+    ip: getClientIp(req),
+    userAgent: String(req.headers["user-agent"] || ""),
+  };
+
+  pushExtractorEvent(event);
+  void sendTelegramMessage(buildExtractorNotification(event)).catch((error) => {
+    console.error("No se pudo enviar la notificacion de extractor:", error.message);
+  });
+}
+
+function getCpuSnapshot() {
+  const cpus = os.cpus();
+  let idle = 0;
+  let total = 0;
+
+  for (const cpu of cpus) {
+    idle += cpu.times.idle;
+    total += Object.values(cpu.times).reduce((sum, value) => sum + value, 0);
+  }
+
+  return { idle, total };
+}
+
+async function sampleCpuUsage() {
+  const start = getCpuSnapshot();
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  const end = getCpuSnapshot();
+  const idleDiff = end.idle - start.idle;
+  const totalDiff = end.total - start.total;
+
+  if (totalDiff <= 0) {
+    return null;
+  }
+
+  return Number(((1 - idleDiff / totalDiff) * 100).toFixed(1));
+}
+
+async function evaluateCpuAlert() {
+  const cpuPercent = await sampleCpuUsage();
+  monitoringState.cpu.currentPercent = cpuPercent;
+  monitoringState.cpu.lastSampleAt = new Date().toISOString();
+
+  if (!Number.isFinite(cpuPercent)) {
+    return;
+  }
+
+  if (cpuPercent >= CPU_ALERT_THRESHOLD_PERCENT) {
+    monitoringState.cpu.aboveThresholdStreak += 1;
+  } else {
+    monitoringState.cpu.aboveThresholdStreak = 0;
+    return;
+  }
+
+  const sustainedSamples = Math.max(1, CPU_ALERT_SUSTAINED_MINUTES);
+  const cooldownPassed = Date.now() - monitoringState.cpu.lastAlertAt >= Math.max(60000, CPU_ALERT_COOLDOWN_MS);
+
+  if (monitoringState.cpu.aboveThresholdStreak < sustainedSamples || !cooldownPassed) {
+    return;
+  }
+
+  monitoringState.cpu.lastAlertAt = Date.now();
+
+  const text = [
+    "Alerta de servidor",
+    `CPU por encima de ${CPU_ALERT_THRESHOLD_PERCENT}%`,
+    `CPU actual: ${cpuPercent}%`,
+    `Sostenido durante aprox. ${CPU_ALERT_SUSTAINED_MINUTES} minuto(s)`,
+    `Load average: ${os.loadavg().map((value) => value.toFixed(2)).join(" / ")}`,
+    `Memoria libre: ${Math.round(os.freemem() / 1024 / 1024)} MB`,
+  ].join("\n");
+
+  await sendTelegramMessage(text);
+}
+
+function startServerMonitoring() {
+  void evaluateCpuAlert().catch((error) => {
+    console.error("No se pudo evaluar la alerta de CPU:", error.message);
+  });
+
+  return setInterval(() => {
+    void evaluateCpuAlert().catch((error) => {
+      console.error("No se pudo evaluar la alerta de CPU:", error.message);
+    });
+  }, Math.max(30000, CPU_SAMPLE_INTERVAL_MS));
+}
+
+function buildHealthPayload() {
+  return {
+    ok: true,
+    app: {
+      name: "gtubeversor",
+      uptimeSeconds: Math.round(process.uptime()),
+      now: new Date().toISOString(),
+      port: PORT,
+      nodeEnv: process.env.NODE_ENV || "development",
+    },
+    system: {
+      hostname: os.hostname(),
+      platform: process.platform,
+      arch: process.arch,
+      loadAverage: os.loadavg(),
+      cpuPercent: monitoringState.cpu.currentPercent,
+      cpuLastSampleAt: monitoringState.cpu.lastSampleAt,
+      freeMemoryMb: Math.round(os.freemem() / 1024 / 1024),
+      totalMemoryMb: Math.round(os.totalmem() / 1024 / 1024),
+    },
+    process: {
+      pid: process.pid,
+      rssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+    },
+    extractor: {
+      recentConversions: recentConversions.length,
+      recentEvents: extractorEvents.length,
+      lastEvent: extractorEvents[0] || null,
+    },
+    integrations: {
+      ffmpegPath,
+      ytdlpBinary: YTDLP_BINARY || "bundled",
+      notifications: {
+        enabled: TELEGRAM_NOTIFICATIONS_ENABLED,
+        telegramChatId: TELEGRAM_CHAT_ID || "",
+        telegramBotToken: TELEGRAM_BOT_TOKEN ? maskSecret(TELEGRAM_BOT_TOKEN) : "",
+      },
+    },
+  };
 }
 
 function extractMetaContent(html, key) {
@@ -592,6 +869,14 @@ async function handleAudioConvert(req, res, source) {
       preview: details.thumbnails?.[details.thumbnails.length - 1]?.url || "",
       accent: source === "soundcloud" ? "soundcloud" : "audio",
     });
+    trackExtractorUsage(req, {
+      route: req.path,
+      platform: getAudioSourceLabel(source),
+      outputType: "mp3",
+      qualityLabel: `${selectedFormat.label} ${selectedFormat.quality}`,
+      title,
+      url,
+    });
 
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader(
@@ -668,6 +953,14 @@ async function handleUniversalAudioConvert(req, res) {
       preview: details.thumbnails?.[details.thumbnails.length - 1]?.url || "",
       accent: platform.toLowerCase().includes("soundcloud") ? "soundcloud" : "audio",
     });
+    trackExtractorUsage(req, {
+      route: req.path,
+      platform,
+      outputType: "mp3",
+      qualityLabel: `${selectedFormat.label} ${selectedFormat.quality}`,
+      title,
+      url,
+    });
 
     res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader(
@@ -736,6 +1029,14 @@ async function handleVideoDownload(req, res) {
       subtitle: `${platform} - Video`,
       preview: details.thumbnails?.[details.thumbnails.length - 1]?.url || "",
       accent: "video",
+    });
+    trackExtractorUsage(req, {
+      route: req.path,
+      platform,
+      outputType: "mp4",
+      qualityLabel: "video",
+      title,
+      url,
     });
 
     res.setHeader("Content-Type", "video/mp4");
@@ -1025,6 +1326,16 @@ app.get("/api/recent", (_req, res) => {
   const requestedLimit = Number.parseInt(String(_req.query?.limit || RECENT_RESPONSE_DEFAULT), 10);
   const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : RECENT_RESPONSE_DEFAULT;
   res.json({ items: recentConversions.slice(0, limit), total: recentConversions.length, limit });
+});
+
+app.get("/api/extractor-events", (req, res) => {
+  const requestedLimit = Number.parseInt(String(req.query?.limit || "20"), 10);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 20;
+  res.json({ items: extractorEvents.slice(0, limit), total: extractorEvents.length, limit });
+});
+
+app.get("/api/health", (_req, res) => {
+  res.json(buildHealthPayload());
 });
 
 app.delete("/api/recent", (req, res) => {
@@ -1498,10 +1809,16 @@ app.get("*", (_req, res) => {
 });
 
 loadRecentConversions();
+loadExtractorEvents();
 loadProjects();
+const monitoringInterval = startServerMonitoring();
 
 const server = app.listen(PORT, () => {
   console.log(`YouTube to MP3 listo en http://localhost:${PORT}`);
+});
+
+server.on("close", () => {
+  clearInterval(monitoringInterval);
 });
 
 module.exports = server;
