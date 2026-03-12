@@ -1484,6 +1484,7 @@ function isRetryableYtdlpError(message) {
   const text = String(message || "").toLowerCase();
   return (
     text.includes("sign in to confirm you're not a bot") ||
+    text.includes("page needs to be reloaded") ||
     text.includes("requested format is not available") ||
     text.includes("only images are available") ||
     text.includes("signature extraction failed") ||
@@ -1508,6 +1509,7 @@ function buildAttemptPlan(extraOptions = {}, behavior = {}) {
 
   attempts.push({ withClient: true, withCookies: true, clientOverride: "web" });
   attempts.push({ withClient: true, withCookies: true, clientOverride: "ios" });
+  attempts.push({ withClient: true, withCookies: true, clientOverride: "android" });
 
   if (includeNoFormatFallback && Object.prototype.hasOwnProperty.call(extraOptions, "format")) {
     attempts.push({ withClient: false, withCookies: true, dropFormat: true });
