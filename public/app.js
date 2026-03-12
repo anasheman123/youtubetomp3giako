@@ -256,7 +256,7 @@ function setAuthState(session = {}) {
   state.auth.guest = session.guest !== false;
   state.auth.provider = session.provider || "guest";
   appShell.classList.remove("is-hidden-shell");
-  authElements.sessionUser.textContent = state.auth.authenticated ? `Hola, ${state.auth.user}` : "Hola, anonymous";
+  authElements.sessionUser.textContent = state.auth.authenticated ? state.auth.user : "Log In";
   authElements.guestActions?.classList.toggle("is-hidden", state.auth.authenticated);
   authElements.userActions?.classList.toggle("is-hidden", !state.auth.authenticated);
   if (authElements.accountGoogleLink) {
