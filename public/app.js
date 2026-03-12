@@ -621,10 +621,6 @@ function attachAudioTool(target) {
     await getForDownload(`${isVideo ? target.videoEndpoint : target.audioEndpoint}?${params.toString()}`, isVideo ? "video.mp4" : "audio.mp3");
     setCompletedStatus(target.statusNode, "Download complete");
     renderPreviewSuccess(target.previewNode, "Download complete");
-    setTimeout(() => {
-      setStatus(target.statusNode, target.previewCta, "success");
-      renderAudioPreview(target, preview);
-    }, 1800);
     setTimeout(refreshRecent, 1200);
   });
 }
