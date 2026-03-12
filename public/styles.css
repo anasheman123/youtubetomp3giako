@@ -2115,6 +2115,34 @@ select:disabled {
   color: var(--danger);
 }
 
+#youtube-tool .tool-card {
+  display: flex;
+  flex-direction: column;
+}
+
+#youtube-tool #status {
+  align-self: flex-start;
+  margin: 0 0 -18px 18px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(231, 220, 198, 0.14);
+  background: linear-gradient(180deg, rgba(56, 40, 27, 0.92), rgba(88, 63, 40, 0.78));
+  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 32px rgba(16, 10, 6, 0.24);
+  position: relative;
+  z-index: 2;
+}
+
+#youtube-tool #status[data-tone="success"] {
+  border-color: rgba(126, 224, 195, 0.26);
+  background: linear-gradient(180deg, rgba(27, 47, 39, 0.92), rgba(50, 76, 64, 0.82));
+}
+
+#youtube-tool #status[data-tone="error"] {
+  border-color: rgba(255, 138, 179, 0.28);
+  background: linear-gradient(180deg, rgba(67, 29, 38, 0.94), rgba(91, 45, 56, 0.84));
+}
+
 .status-check {
   width: 18px;
   height: 18px;
