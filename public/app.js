@@ -502,6 +502,20 @@ function renderAudioPreview(target, data) {
   `;
 }
 
+function renderPreviewLoader(node, message = "Loading...") {
+  if (!node) {
+    return;
+  }
+
+  node.classList.add("preview-empty");
+  node.innerHTML = `
+    <div class="preview-placeholder preview-loader-shell">
+      <span class="loader" aria-hidden="true"></span>
+      <p>${escapeHtml(message)}</p>
+    </div>
+  `;
+}
+
 async function fetchAudioPreview(target) {
   const url = target.urlInput.value.trim();
   if (!url) {
@@ -516,6 +530,7 @@ async function fetchAudioPreview(target) {
   }
 
   setStatus(target.statusNode, target.sourceLabel === "Link" ? "Reading link data..." : `Reading ${target.sourceLabel} data...`);
+  renderPreviewLoader(target.previewNode, target.sourceLabel === "Link" ? "Loading preview..." : `Loading ${target.sourceLabel} preview...`);
   target.previewButton.disabled = true;
   target.downloadButton.disabled = true;
 
@@ -568,6 +583,7 @@ function attachAudioTool(target) {
     }
 
     setStatus(target.statusNode, isVideo ? "Preparando descarga del MP4..." : "Preparando descarga del MP3...", "success");
+    renderPreviewLoader(target.previewNode, isVideo ? "Preparing MP4 download..." : "Preparing MP3 download...");
     setTimeout(refreshRecent, 1200);
     window.location.href = `${isVideo ? target.videoEndpoint : target.audioEndpoint}?${params.toString()}`;
   });
@@ -734,6 +750,7 @@ videoNodes.form.addEventListener("submit", async (event) => {
 
   renderVideoPreview();
   setStatus(videoNodes.status, "Generating MP4 video...");
+  renderPreviewLoader(videoNodes.preview, "Generating MP4 video...");
   videoNodes.previewButton.disabled = true;
   videoNodes.submitButton.disabled = true;
 
