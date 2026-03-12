@@ -11,6 +11,73 @@ npm start
 
 Abre `http://localhost:3020`.
 
+## Cuentas y acceso
+
+La app ahora puede usarse sin login, en modo `anonymous`.
+
+Opciones de acceso:
+- invitado sin cuenta
+- registro con usuario + password
+- login local
+- login con Google si configuras OAuth
+
+Variables opcionales para Google en `.env`:
+
+```bash
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_CALLBACK_URL=https://tu-dominio.com/api/auth/google/callback
+```
+
+## Pagos con Paddle
+
+La pagina `Subscribe` ahora usa `Paddle Checkout` hospedado para upgrades de plan. La app no procesa tarjetas directamente.
+
+Variables nuevas en `.env`:
+
+```bash
+APP_BASE_URL=https://tu-dominio.com
+PADDLE_ENV=sandbox
+PADDLE_API_KEY=...
+PADDLE_CLIENT_TOKEN=...
+PADDLE_WEBHOOK_SECRET=...
+PADDLE_PRICE_RISING=pri_...
+PADDLE_PRICE_STANDOUT=pri_...
+PADDLE_PRICE_ICON=pri_...
+```
+
+Flujo:
+- `Rising` = pago unico
+- `Standout` = pago unico
+- `Icon` = pago unico
+- Paddle abre checkout
+- el webhook `POST /api/paddle/webhook` aplica el plan cuando el pago queda confirmado
+
+Que tienes que hacer en Paddle:
+1. Crear 3 precios:
+   - `Rising` por `1 USD`
+   - `Standout` por `5 USD`
+   - `Icon` por `10 USD`
+2. Copiar los `pri_...` y ponerlos en `.env`
+3. Crear un `Client-side token`
+4. Configurar un webhook apuntando a:
+
+```bash
+https://tu-dominio.com/api/paddle/webhook
+```
+
+5. Suscribirte al evento:
+   - `checkout.session.completed`
+   En Paddle usa:
+   - `transaction.completed`
+   - opcionalmente `transaction.paid`
+6. Copiar el webhook secret al `.env`
+
+Nota:
+- `anonymous` no puede comprar planes
+- los upgrades directos por API quedaron bloqueados por defecto
+- si quieres testing manual, existe `ALLOW_MANUAL_PLAN_OVERRIDE=true`, pero no deberias usarlo en produccion
+
 ## Produccion (VPS Ubuntu)
 
 Archivos nuevos para deploy:

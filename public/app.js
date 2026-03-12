@@ -4,6 +4,42 @@ const state = {
   templates: [],
   imageSourceMode: "upload",
   selectedPinterestImage: null,
+  auth: {
+    ready: false,
+    user: "anonymous",
+    authenticated: false,
+    guest: true,
+    provider: "guest",
+  },
+};
+
+const appShell = document.querySelector("#app-shell");
+const authElements = {
+  gate: document.querySelector("#auth-gate"),
+  form: document.querySelector("#login-form"),
+  registerForm: document.querySelector("#register-form"),
+  googleUsernameForm: document.querySelector("#google-username-form"),
+  username: document.querySelector("#login-username"),
+  password: document.querySelector("#login-password"),
+  registerUsername: document.querySelector("#register-username"),
+  registerEmail: document.querySelector("#register-email"),
+  registerPassword: document.querySelector("#register-password"),
+  googleUsername: document.querySelector("#google-username-input"),
+  status: document.querySelector("#login-status"),
+  closeButton: document.querySelector("#auth-close-button"),
+  loginTab: document.querySelector("#auth-login-tab"),
+  registerTab: document.querySelector("#auth-register-tab"),
+  googleButton: document.querySelector("#google-auth-button"),
+  logoutButton: document.querySelector("#logout-button"),
+  sessionUser: document.querySelector("#session-user"),
+  accountButton: document.querySelector("#account-button"),
+  accountDropdown: document.querySelector("#account-dropdown"),
+  accountLoginLink: document.querySelector("#account-login-link"),
+  accountGoogleLink: document.querySelector("#account-google-link"),
+  guestActions: document.querySelector("#account-guest-actions"),
+  userActions: document.querySelector("#account-user-actions"),
+  accountSearchInput: document.querySelector("#account-user-search"),
+  accountSearchResults: document.querySelector("#account-search-results"),
 };
 
 const navLinks = [...document.querySelectorAll(".nav-link")];
@@ -23,8 +59,8 @@ const youtubeElements = {
   audioEndpoint: "/api/media-audio",
   videoEndpoint: "/api/media-video",
   sourceLabel: "Link",
-  emptyMessage: "Esperando un link compatible.",
-  previewCta: "Si la ficha es correcta, ya puedes bajar el audio MP3 o el video MP4.",
+  emptyMessage: "Waiting for a supported link.",
+  previewCta: "If the preview looks right, you can now download the MP3 audio or MP4 video.",
 };
 
 const bulkNodes = {
@@ -81,6 +117,194 @@ function setStatus(node, message, tone = "") {
   }
 }
 
+function buildPlanLabel(subscription) {
+  if (!subscription) {
+    return "";
+  }
+
+  const badge = subscription.badge ? `${subscription.badge} ` : "";
+  return `${badge}${subscription.name}`;
+}
+
+function getSubscriptionDisplayColor(subscription) {
+  if (!subscription) {
+    return "#f0dfad";
+  }
+
+  return subscription.id === "free" ? "#74d99f" : subscription.color || "#f0dfad";
+}
+
+function renderUsername(username, subscription) {
+  const safeUsername = escapeHtml(username || "anonymous");
+  if (subscription?.id && subscription.id !== "free") {
+    return `<span class="username-crown" aria-hidden="true">♔</span><span>${safeUsername}</span>`;
+  }
+
+  return safeUsername;
+}
+
+function isAnonymousUsername(username) {
+  const normalized = String(username || "").trim().toLowerCase();
+  return !normalized || normalized === "anonymous" || normalized === "open-access";
+}
+
+function renderUserSearchResults(container, items = []) {
+  if (!container) {
+    return;
+  }
+
+  if (!Array.isArray(items) || items.length === 0) {
+    container.innerHTML = '<div class="user-search-empty">No users found.</div>';
+    container.classList.remove("is-hidden");
+    return;
+  }
+
+  container.innerHTML = items
+    .map((item) => {
+      const avatar = item.avatarDataUrl
+        ? `<img class="user-search-avatar-image" src="${escapeHtml(item.avatarDataUrl)}" alt="${escapeHtml(item.username)}" />`
+        : `<span class="user-search-avatar-fallback">${escapeHtml(item.username.slice(0, 1).toUpperCase())}</span>`;
+      const label = buildPlanLabel(item.subscription);
+      return `
+        <a class="user-search-item" href="/profile.html?user=${encodeURIComponent(item.username)}">
+          <span class="user-search-avatar">${avatar}</span>
+          <span class="user-search-body">
+            <strong>${renderUsername(item.username, item.subscription)}</strong>
+            <small>${escapeHtml(label || "Profile")}</small>
+          </span>
+        </a>
+      `;
+    })
+    .join("");
+  container.classList.remove("is-hidden");
+}
+
+async function fetchUserSearch(query) {
+  const response = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`, { credentials: "same-origin" });
+  const data = await response.json().catch(() => ({ items: [] }));
+  if (!response.ok) {
+    throw new Error(data.error || "Could not search users.");
+  }
+  return Array.isArray(data.items) ? data.items : [];
+}
+
+function wireUserSearch(input, container) {
+  if (!input || !container) {
+    return;
+  }
+
+  let timer = null;
+  let requestId = 0;
+
+  input.addEventListener("input", () => {
+    const query = input.value.trim();
+    window.clearTimeout(timer);
+
+    if (query.length < 2) {
+      container.innerHTML = "";
+      container.classList.add("is-hidden");
+      return;
+    }
+
+    timer = window.setTimeout(async () => {
+      const currentRequest = ++requestId;
+      try {
+        const items = await fetchUserSearch(query);
+        if (currentRequest !== requestId) {
+          return;
+        }
+        renderUserSearchResults(container, items);
+      } catch (_error) {
+        if (currentRequest !== requestId) {
+          return;
+        }
+        container.innerHTML = '<div class="user-search-empty">Search unavailable.</div>';
+        container.classList.remove("is-hidden");
+      }
+    }, 260);
+  });
+}
+
+function openAuthGate(mode = "login") {
+  authElements.gate.classList.remove("is-hidden");
+  document.body.classList.add("auth-open");
+  setAuthMode(mode);
+}
+
+function closeAuthGate() {
+  authElements.gate.classList.add("is-hidden");
+  document.body.classList.remove("auth-open");
+}
+
+function setAuthMode(mode = "login") {
+  const isRegister = mode === "register";
+  const isGoogleSetup = mode === "google-username";
+  authElements.loginTab?.classList.toggle("is-active", !isRegister && !isGoogleSetup);
+  authElements.registerTab?.classList.toggle("is-active", isRegister);
+  authElements.loginTab?.classList.toggle("is-hidden", isGoogleSetup);
+  authElements.registerTab?.classList.toggle("is-hidden", isGoogleSetup);
+  authElements.form?.classList.toggle("is-hidden", isRegister || isGoogleSetup);
+  authElements.registerForm?.classList.toggle("is-hidden", !isRegister);
+  authElements.googleUsernameForm?.classList.toggle("is-hidden", !isGoogleSetup);
+  authElements.googleButton?.classList.toggle("is-hidden", isGoogleSetup || authElements.googleButton.classList.contains("is-disabled-google"));
+}
+
+function setAuthState(session = {}) {
+  state.auth.ready = true;
+  state.auth.user = session.user || "anonymous";
+  state.auth.authenticated = Boolean(session.authenticated);
+  state.auth.guest = session.guest !== false;
+  state.auth.provider = session.provider || "guest";
+  appShell.classList.remove("is-hidden-shell");
+  authElements.sessionUser.textContent = state.auth.authenticated ? `Hola, ${state.auth.user}` : "Hola, anonymous";
+  authElements.guestActions?.classList.toggle("is-hidden", state.auth.authenticated);
+  authElements.userActions?.classList.toggle("is-hidden", !state.auth.authenticated);
+  if (authElements.accountGoogleLink) {
+    authElements.accountGoogleLink.classList.toggle("is-hidden", !session.googleEnabled);
+  }
+  if (authElements.googleButton) {
+    authElements.googleButton.classList.toggle("is-disabled-google", !session.googleEnabled);
+    authElements.googleButton.classList.toggle("is-hidden", !session.googleEnabled);
+  }
+  authElements.accountDropdown?.classList.add("is-hidden");
+  authElements.accountButton?.classList.remove("is-open");
+  authElements.accountButton?.setAttribute("aria-expanded", "false");
+  if (authElements.accountSearchInput) {
+    authElements.accountSearchInput.value = "";
+  }
+  authElements.accountSearchResults?.classList.add("is-hidden");
+  if (authElements.accountSearchResults) {
+    authElements.accountSearchResults.innerHTML = "";
+  }
+}
+
+function setLoginStatus(message, tone = "") {
+  setStatus(authElements.status, message, tone);
+}
+
+function updateGoogleLinks() {
+  const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const href = `/api/auth/google/start?next=${encodeURIComponent(next || "/")}`;
+  authElements.googleButton?.setAttribute("href", href);
+  authElements.accountGoogleLink?.setAttribute("href", href);
+}
+
+function handleUnauthorized() {
+  setAuthState({ authenticated: false, guest: true, user: "anonymous", provider: "guest" });
+  authElements.password.value = "";
+  setLoginStatus("You are back in anonymous mode.", "error");
+}
+
+async function apiFetch(input, init) {
+  const response = await fetch(input, init);
+  if (response.status === 401) {
+    handleUnauthorized();
+    throw new Error("Session expired. Sign in again.");
+  }
+
+  return response;
+}
+
 function formatDuration(totalSeconds) {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
     return "Duracion no disponible";
@@ -129,10 +353,10 @@ function downloadBlob(blob, response, fallbackName) {
 }
 
 async function postFormForDownload(url, formData, fallbackName) {
-  const response = await fetch(url, { method: "POST", body: formData });
+  const response = await apiFetch(url, { method: "POST", body: formData });
   if (!response.ok) {
-    const data = await response.json().catch(() => ({ error: "No se pudo procesar la solicitud." }));
-    throw new Error(data.error || "No se pudo procesar la solicitud.");
+    const data = await response.json().catch(() => ({ error: "Could not process the request." }));
+    throw new Error(data.error || "Could not process the request.");
   }
 
   const blob = await response.blob();
@@ -166,7 +390,7 @@ function renderRecent(items) {
   if (!items.length) {
     recentCarouselNode.classList.add("recent-empty");
     recentCarouselNode.classList.remove("recent-animated");
-    recentCarouselNode.innerHTML = `<div class="recent-placeholder">Todavia no hay conversiones.</div>`;
+    recentCarouselNode.innerHTML = `<div class="recent-placeholder">No conversions yet.</div>`;
     return;
   }
 
@@ -177,14 +401,44 @@ function renderRecent(items) {
     .map((item) => {
       const badge = item.type === "mp4" ? "MP4" : "MP3";
       const visual = item.preview
-        ? `<img class="recent-thumb" src="${escapeHtml(item.preview)}" alt="${escapeHtml(item.title)}" />`
-        : `<div class="recent-fallback">${badge}</div>`;
+        ? `
+          <div class="recent-visual">
+            <img
+              class="recent-thumb"
+              src="${escapeHtml(item.preview)}"
+              alt="${escapeHtml(item.title)}"
+              onerror="this.parentElement.classList.add('is-fallback'); this.remove();"
+            />
+            <div class="recent-fallback recent-fallback-icon" aria-hidden="true">
+              <span class="recent-fallback-glyph">◫</span>
+            </div>
+          </div>
+        `
+        : `
+          <div class="recent-visual is-fallback">
+            <div class="recent-fallback recent-fallback-icon" aria-hidden="true">
+              <span class="recent-fallback-glyph">◫</span>
+            </div>
+          </div>
+        `;
 
       return `
         <article class="recent-card" data-accent="${escapeHtml(item.accent || "audio")}">
           ${visual}
           <div class="recent-body">
-            <span class="recent-badge">${badge}</span>
+            <div class="recent-meta-row">
+              <span class="recent-badge">${badge}</span>
+              ${
+                isAnonymousUsername(item.username)
+                  ? `<span class="recent-user" style="color:${escapeHtml(getSubscriptionDisplayColor(item.subscription))}">${renderUsername(item.username || "anonymous", item.subscription)}</span>`
+                  : `<a
+                class="user-link recent-user"
+                href="/profile.html?user=${encodeURIComponent(item.username || "anonymous")}#profile-history"
+                style="color:${escapeHtml(getSubscriptionDisplayColor(item.subscription))}"
+                title="${escapeHtml(buildPlanLabel(item.subscription))}"
+              >${renderUsername(item.username || "anonymous", item.subscription)}</a>`
+              }
+            </div>
             <h3>${escapeHtml(item.title)}</h3>
             <p>${escapeHtml(item.subtitle || "")}</p>
             <small>${formatRecentTime(item.createdAt)}</small>
@@ -199,12 +453,12 @@ function renderRecent(items) {
 
 async function refreshRecent() {
   try {
-    const response = await fetch("/api/recent");
+    const response = await apiFetch("/api/recent");
     const data = await response.json();
     renderRecent(Array.isArray(data.items) ? data.items : []);
   } catch (_error) {
     recentCarouselNode.classList.add("recent-empty");
-    recentCarouselNode.innerHTML = `<div class="recent-placeholder">No se pudo cargar el historial.</div>`;
+    recentCarouselNode.innerHTML = `<div class="recent-placeholder">Could not load history.</div>`;
   }
 }
 
@@ -254,22 +508,22 @@ async function fetchAudioPreview(target) {
     setStatus(
       target.statusNode,
       target.sourceLabel === "Link"
-        ? "Pega un link compatible antes de previsualizar."
-        : `Pega un link de ${target.sourceLabel} antes de previsualizar.`,
+        ? "Paste a supported link before previewing."
+        : `Paste a ${target.sourceLabel} link before previewing.`,
       "error",
     );
     return null;
   }
 
-  setStatus(target.statusNode, target.sourceLabel === "Link" ? "Leyendo datos del link..." : `Leyendo datos de ${target.sourceLabel}...`);
+  setStatus(target.statusNode, target.sourceLabel === "Link" ? "Reading link data..." : `Reading ${target.sourceLabel} data...`);
   target.previewButton.disabled = true;
   target.downloadButton.disabled = true;
 
   try {
-    const response = await fetch(`${target.infoEndpoint}?url=${encodeURIComponent(url)}`);
+    const response = await apiFetch(`${target.infoEndpoint}?url=${encodeURIComponent(url)}`);
     const data = await response.json();
     if (!response.ok) {
-      const baseError = data.error || (target.sourceLabel === "Link" ? "No se pudo leer el link." : `No se pudo cargar ${target.sourceLabel}.`);
+      const baseError = data.error || (target.sourceLabel === "Link" ? "Could not read the link." : `Could not load ${target.sourceLabel}.`);
       const details = typeof data.details === "string" ? data.details.trim() : "";
       throw new Error(details ? `${baseError} (${details})` : baseError);
     }
@@ -293,7 +547,7 @@ function attachAudioTool(target) {
       target.qualitySelect.disabled = isVideo;
     }
     if (target.downloadButton) {
-      target.downloadButton.textContent = isVideo ? "Descargar MP4" : "Descargar MP3";
+      target.downloadButton.textContent = isVideo ? "Download MP4" : "Download MP3";
     }
   };
 
@@ -334,7 +588,7 @@ function detectSource(url) {
 function buildBulkResults(urls) {
   if (!urls.length) {
     bulkNodes.results.className = "batch-list empty-state";
-    bulkNodes.results.textContent = "Todavia no hay descargas preparadas.";
+    bulkNodes.results.textContent = "No downloads prepared yet.";
     return;
   }
 
@@ -350,7 +604,7 @@ function buildBulkResults(urls) {
             <span class="project-tool">${escapeHtml(source)}</span>
             <p>${escapeHtml(url)}</p>
           </div>
-          <a class="primary-link" href="${href}">Descargar ${index + 1}</a>
+          <a class="primary-link" href="${href}">Download ${index + 1}</a>
         </article>
       `;
     })
@@ -369,23 +623,23 @@ function setSourceMode(mode) {
 async function loadPinterestPreview() {
   const url = videoNodes.pinterestUrl.value.trim();
   if (!url) {
-    setStatus(videoNodes.status, "Pega un link de Pinterest.", "error");
+    setStatus(videoNodes.status, "Paste a Pinterest link.", "error");
     return;
   }
 
   videoNodes.pinterestLoad.disabled = true;
-  setStatus(videoNodes.status, "Leyendo pin de Pinterest...");
+  setStatus(videoNodes.status, "Reading Pinterest pin...");
 
   try {
-    const response = await fetch(`/api/pinterest-preview?url=${encodeURIComponent(url)}`);
+    const response = await apiFetch(`/api/pinterest-preview?url=${encodeURIComponent(url)}`);
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || "No se pudo leer el pin de Pinterest.");
+      throw new Error(data.error || "Could not read the Pinterest pin.");
     }
 
     state.selectedPinterestImage = data;
     setSourceMode("pinterest");
-    setStatus(videoNodes.status, "Portada de Pinterest cargada.", "success");
+    setStatus(videoNodes.status, "Pinterest cover loaded.", "success");
   } catch (error) {
     setStatus(videoNodes.status, error.message, "error");
   } finally {
@@ -401,17 +655,17 @@ function renderVideoPreview() {
   const previewImage = usePinterest ? imageUrl : imageFile ? URL.createObjectURL(imageFile) : "";
 
   if ((!imageFile && !imageUrl) || !audioFile) {
-    setStatus(videoNodes.status, "Debes elegir portada e audio antes de preparar la vista previa.", "error");
+    setStatus(videoNodes.status, "You must choose a cover and audio before preparing the preview.", "error");
     return;
   }
 
   const ratioLabel = videoNodes.ratioSelect.options[videoNodes.ratioSelect.selectedIndex]?.text || "Landscape 16:9";
-  const coverName = usePinterest ? state.selectedPinterestImage?.title || "Pinterest" : imageFile?.name || "Portada";
+  const coverName = usePinterest ? state.selectedPinterestImage?.title || "Pinterest" : imageFile?.name || "Cover";
 
   videoNodes.preview.classList.remove("preview-empty");
   videoNodes.preview.innerHTML = `
     <div class="preview-content">
-      <img src="${escapeHtml(previewImage)}" alt="Preview de video" />
+      <img src="${escapeHtml(previewImage)}" alt="Video preview" />
       <div class="preview-body">
         <div>
           <h2>${escapeHtml(audioFile.name)}</h2>
@@ -422,7 +676,7 @@ function renderVideoPreview() {
           <span>Still cover</span>
           <span>Video</span>
         </div>
-        <p>La imagen quedara fija durante toda la duracion del audio y se exportara como MP4.</p>
+        <p>The image will stay static for the full audio duration and will be exported as MP4.</p>
       </div>
     </div>
   `;
@@ -432,7 +686,7 @@ function renderVideoPreview() {
     imageNode.addEventListener("load", () => URL.revokeObjectURL(previewImage), { once: true });
   }
 
-  setStatus(videoNodes.status, "Vista previa lista. Ya puedes crear el MP4.", "success");
+  setStatus(videoNodes.status, "Preview ready. You can now create the MP4.", "success");
 }
 
 attachAudioTool(youtubeElements);
@@ -445,7 +699,7 @@ bulkNodes.form.addEventListener("submit", (event) => {
     .filter(Boolean);
 
   if (!urls.length) {
-    setStatus(bulkNodes.status, "Pega al menos un link.", "error");
+    setStatus(bulkNodes.status, "Paste at least one link.", "error");
     buildBulkResults([]);
     return;
   }
@@ -459,13 +713,13 @@ videoNodes.sourcePinterest.addEventListener("click", () => setSourceMode("pinter
 videoNodes.pinterestLoad.addEventListener("click", loadPinterestPreview);
 videoNodes.previewButton.addEventListener("click", renderVideoPreview);
 videoNodes.imageInput.addEventListener("change", () => {
-  setFileLabel(videoNodes.imageInput, videoNodes.imageName, "Ningun archivo");
+  setFileLabel(videoNodes.imageInput, videoNodes.imageName, "No file selected");
   if (getSelectedFile(videoNodes.imageInput)) {
     state.selectedPinterestImage = null;
     setSourceMode("upload");
   }
 });
-videoNodes.audioInput.addEventListener("change", () => setFileLabel(videoNodes.audioInput, videoNodes.audioName, "Ningun archivo"));
+videoNodes.audioInput.addEventListener("change", () => setFileLabel(videoNodes.audioInput, videoNodes.audioName, "No file selected"));
 
 videoNodes.form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -474,12 +728,12 @@ videoNodes.form.addEventListener("submit", async (event) => {
   const usePinterest = state.imageSourceMode === "pinterest" && Boolean(state.selectedPinterestImage?.imageUrl);
 
   if ((!imageFile && !usePinterest) || !audioFile) {
-    setStatus(videoNodes.status, "Debes seleccionar portada e audio.", "error");
+    setStatus(videoNodes.status, "You must select a cover and audio.", "error");
     return;
   }
 
   renderVideoPreview();
-  setStatus(videoNodes.status, "Generando video MP4...");
+  setStatus(videoNodes.status, "Generating MP4 video...");
   videoNodes.previewButton.disabled = true;
   videoNodes.submitButton.disabled = true;
 
@@ -497,7 +751,7 @@ videoNodes.form.addEventListener("submit", async (event) => {
 
   try {
     await postFormForDownload("/api/create-video", formData, "video.mp4");
-    setStatus(videoNodes.status, "Video creado y descargado.", "success");
+    setStatus(videoNodes.status, "Video created and downloaded.", "success");
     refreshRecent();
   } catch (error) {
     setStatus(videoNodes.status, error.message, "error");
@@ -507,17 +761,17 @@ videoNodes.form.addEventListener("submit", async (event) => {
   }
 });
 
-trimNodes.audioInput.addEventListener("change", () => setFileLabel(trimNodes.audioInput, trimNodes.audioName, "Ningun archivo"));
+trimNodes.audioInput.addEventListener("change", () => setFileLabel(trimNodes.audioInput, trimNodes.audioName, "No file selected"));
 trimNodes.form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const audioFile = getSelectedFile(trimNodes.audioInput);
   if (!audioFile) {
-    setStatus(trimNodes.status, "Sube un audio.", "error");
+    setStatus(trimNodes.status, "Upload an audio file.", "error");
     return;
   }
 
   trimNodes.submitButton.disabled = true;
-  setStatus(trimNodes.status, "Recortando audio...");
+  setStatus(trimNodes.status, "Trimming audio...");
   const formData = new FormData();
   formData.append("audio", audioFile);
   formData.append("start", trimNodes.startInput.value.trim());
@@ -537,7 +791,7 @@ trimNodes.form.addEventListener("submit", async (event) => {
 });
 
 async function loadFormats() {
-  const response = await fetch("/api/formats");
+  const response = await apiFetch("/api/formats");
   const data = await response.json();
   state.formats = Array.isArray(data.formats) ? data.formats : [];
   state.videoFormats = Array.isArray(data.videoFormats) ? data.videoFormats : [];
@@ -549,15 +803,179 @@ async function loadFormats() {
   populateVideoFormatSelect(videoNodes.ratioSelect, state.videoFormats);
 }
 
-loadFormats()
-  .then(async () => {
-    setStatus(youtubeElements.statusNode, youtubeElements.emptyMessage);
-    setStatus(videoNodes.status, "Sube una imagen y un audio para montar el video.");
-    setStatus(trimNodes.status, "Sube un audio y marca el rango.");
-    await refreshRecent();
-  })
-  .catch(async (error) => {
-    setStatus(youtubeElements.statusNode, `No se pudieron cargar las calidades: ${error.message}`, "error");
-    setStatus(videoNodes.status, `No se pudieron cargar los formatos: ${error.message}`, "error");
-    await refreshRecent();
-  });
+async function bootAuthenticatedApp() {
+  await loadFormats();
+  setStatus(youtubeElements.statusNode, youtubeElements.emptyMessage);
+  setStatus(videoNodes.status, "Upload an image and audio to build the video.");
+  setStatus(trimNodes.status, "Upload audio and mark the range.");
+  await refreshRecent();
+}
+
+async function restoreSession() {
+  try {
+    const response = await fetch("/api/auth/session", { credentials: "same-origin" });
+    const data = await response.json();
+    setAuthState(data);
+    updateGoogleLinks();
+    const hasGoogleError = window.location.search.includes("auth_error=google");
+    if (hasGoogleError) {
+      openAuthGate("login");
+      setLoginStatus("Could not sign in with Google.", "error");
+    } else if (data.needsUsernameSetup) {
+      openAuthGate("google-username");
+      if (authElements.googleUsername) {
+        authElements.googleUsername.value = data.user || "";
+      }
+      setLoginStatus("Choose your username once to complete your Google account.");
+    } else {
+      closeAuthGate();
+    }
+    await bootAuthenticatedApp();
+  } catch (_error) {
+    setAuthState({ authenticated: false, guest: true, user: "anonymous", provider: "guest" });
+    setLoginStatus("Could not validate the session.", "error");
+    await bootAuthenticatedApp();
+  }
+}
+
+authElements.form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setLoginStatus("Validating access...");
+
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        username: authElements.username.value.trim(),
+        password: authElements.password.value,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || "Could not sign in.");
+    }
+
+    authElements.password.value = "";
+    setAuthState({ ...data, authenticated: true, guest: false });
+    setLoginStatus("Signed in.", "success");
+    closeAuthGate();
+    await bootAuthenticatedApp();
+  } catch (error) {
+    setLoginStatus(error.message, "error");
+  }
+});
+
+authElements.registerForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setLoginStatus("Creating account...");
+
+  try {
+    const response = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        username: authElements.registerUsername.value.trim(),
+        email: authElements.registerEmail.value.trim(),
+        password: authElements.registerPassword.value,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || "Could not create the account.");
+    }
+
+    authElements.registerPassword.value = "";
+    setAuthState({ ...data, authenticated: true, guest: false });
+    setLoginStatus("Account created.", "success");
+    closeAuthGate();
+    await bootAuthenticatedApp();
+  } catch (error) {
+    setLoginStatus(error.message, "error");
+  }
+});
+
+authElements.googleUsernameForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const username = authElements.googleUsername?.value?.trim() || "";
+  if (!username) {
+    setLoginStatus("Enter a valid username.", "error");
+    return;
+  }
+
+  setLoginStatus("Saving username...");
+  try {
+    const response = await fetch("/api/account/google-username", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ username }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || "Could not save the username.");
+    }
+
+    setAuthState({ authenticated: true, guest: false, user: data.user, provider: "google", googleEnabled: true });
+    setLoginStatus("Account ready.", "success");
+    closeAuthGate();
+    await bootAuthenticatedApp();
+  } catch (error) {
+    setLoginStatus(error.message, "error");
+  }
+});
+
+authElements.logoutButton.addEventListener("click", async () => {
+  try {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+  } finally {
+    setAuthState({ authenticated: false, guest: true, user: "anonymous", provider: "guest" });
+    authElements.password.value = "";
+    setLoginStatus("You are still using the app as anonymous.", "success");
+  }
+});
+
+authElements.closeButton?.addEventListener("click", closeAuthGate);
+authElements.loginTab?.addEventListener("click", () => setAuthMode("login"));
+authElements.registerTab?.addEventListener("click", () => setAuthMode("register"));
+authElements.accountLoginLink?.addEventListener("click", () => {
+  openAuthGate("login");
+  authElements.accountDropdown?.classList.add("is-hidden");
+  authElements.accountButton?.classList.remove("is-open");
+  authElements.accountButton?.setAttribute("aria-expanded", "false");
+});
+
+authElements.accountButton?.addEventListener("click", () => {
+  const isOpen = authElements.accountDropdown?.classList.toggle("is-hidden") === false;
+  authElements.accountButton?.classList.toggle("is-open", isOpen);
+  authElements.accountButton?.setAttribute("aria-expanded", String(isOpen));
+});
+
+document.addEventListener("click", (event) => {
+  if (!authElements.accountDropdown || !authElements.accountButton) {
+    return;
+  }
+
+  const target = event.target;
+  if (!(target instanceof Node)) {
+    return;
+  }
+
+  if (authElements.accountButton.contains(target) || authElements.accountDropdown.contains(target)) {
+    return;
+  }
+
+  authElements.accountDropdown.classList.add("is-hidden");
+  authElements.accountButton.classList.remove("is-open");
+  authElements.accountButton.setAttribute("aria-expanded", "false");
+  authElements.accountSearchResults?.classList.add("is-hidden");
+});
+
+wireUserSearch(authElements.accountSearchInput, authElements.accountSearchResults);
+updateGoogleLinks();
+restoreSession();

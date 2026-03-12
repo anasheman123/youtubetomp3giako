@@ -12,6 +12,7 @@
     "pm2:restart": "pm2 reload gtubeversor --update-env"
   },
   "dependencies": {
+    "@paddle/paddle-node-sdk": "^3.6.0",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "ffmpeg-static": "^5.2.0",

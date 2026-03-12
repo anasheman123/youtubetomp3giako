@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,22 +10,76 @@
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/catwithpodsforico.png" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="noise"></div>
-    <div class="app-shell">
+    <section id="auth-gate" class="auth-gate is-hidden">
+      <div class="auth-card">
+        <div class="auth-card-head">
+          <div>
+            <span class="eyebrow">Account</span>
+            <h1>Sign in or create your account</h1>
+          </div>
+          <button id="auth-close-button" type="button" class="ghost-button auth-close-button">Continue as anonymous</button>
+        </div>
+        <p class="auth-copy">You can use the whole app without signing in. If you use an account, your conversions and profile stay saved under your username.</p>
+        <div class="auth-switcher">
+          <button id="auth-login-tab" type="button" class="auth-tab is-active">Login</button>
+          <button id="auth-register-tab" type="button" class="auth-tab">Register</button>
+        </div>
+        <form id="login-form" class="stack-form auth-form">
+          <label class="field">
+            <span>Username</span>
+            <input id="login-username" type="text" autocomplete="username" />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input id="login-password" type="password" autocomplete="current-password" />
+          </label>
+          <button type="submit" class="primary-button">Sign in</button>
+        </form>
+        <form id="register-form" class="stack-form auth-form is-hidden">
+          <label class="field">
+            <span>Username</span>
+            <input id="register-username" type="text" autocomplete="username" />
+          </label>
+          <label class="field">
+            <span>Email</span>
+            <input id="register-email" type="email" autocomplete="email" />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input id="register-password" type="password" autocomplete="new-password" />
+          </label>
+          <button type="submit" class="primary-button">Create account</button>
+        </form>
+        <form id="google-username-form" class="stack-form auth-form is-hidden">
+          <label class="field">
+            <span>Choose your username</span>
+            <input id="google-username-input" type="text" maxlength="64" autocomplete="nickname" />
+          </label>
+          <button type="submit" class="primary-button">Save and continue</button>
+        </form>
+        <a id="google-auth-button" class="ghost-button auth-google-button" href="/api/auth/google/start">Continue with Google</a>
+        <p id="login-status" class="status">You can sign in, register, or continue as anonymous.</p>
+      </div>
+    </section>
+
+    <div id="app-shell" class="app-shell">
       <aside class="sidebar">
         <div class="sidebar-brand">
-          <span class="brand-mark">G</span>
+          <span class="brand-mark">
+            <img src="/catwithpods.png" alt="GtubeVersor logo" />
+          </span>
           <div>
             <strong>GtubeVersor</strong>
             <small>Creator Toolkit</small>
           </div>
         </div>
 
-        <div class="brand-links" aria-label="Links principales">
+        <div class="brand-links" aria-label="Main links">
           <a class="brand-link" href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="YouTube">
             <img src="/youtube.png" alt="" />
           </a>
@@ -55,6 +109,32 @@
           <button class="nav-link" data-target="video-tool">Video Studio</button>
           <button class="nav-link" data-target="trim-tool">Audio Trim</button>
         </nav>
+
+        <div class="sidebar-actions">
+          <div class="account-menu">
+            <button id="account-button" type="button" class="account-trigger" aria-expanded="false" aria-haspopup="menu">
+              <span id="session-user" class="session-user"></span>
+              <span class="account-chevron" aria-hidden="true"></span>
+            </button>
+            <div id="account-dropdown" class="account-dropdown is-hidden">
+              <div class="account-search">
+                <label class="account-search-label" for="account-user-search">Search users</label>
+                <input id="account-user-search" class="account-search-input" type="search" placeholder="Find a profile" autocomplete="off" />
+                <div id="account-search-results" class="user-search-results account-search-results is-hidden"></div>
+              </div>
+              <div id="account-guest-actions">
+                <button id="account-login-link" type="button" class="account-link">Login / Register</button>
+                <a id="account-google-link" class="account-link" href="/api/auth/google/start">Continue with Google</a>
+              </div>
+              <div id="account-user-actions" class="is-hidden">
+                <a class="account-link" href="/profile.html">Profile</a>
+                <a class="account-link" href="/profile.html#profile-history">History</a>
+                <a class="account-link" href="/subscribe.html">Subscribe</a>
+                <button id="logout-button" type="button" class="account-link account-logout">Sign out</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </aside>
 
       <main class="workspace">
@@ -64,7 +144,7 @@
           </div>
           <div class="recent-viewport">
             <div id="recent-carousel" class="recent-carousel recent-empty">
-              <div class="recent-placeholder">Todavia no hay conversiones.</div>
+              <div class="recent-placeholder">No conversions yet.</div>
             </div>
           </div>
         </section>
@@ -78,12 +158,12 @@
           </div>
           <div class="tool-grid">
             <article class="tool-copy">
-              <p>Pega un link de YouTube, SoundCloud, Pinterest, Facebook, Twitter, Instagram o TikTok y extrae audio o video.</p>
+              <p>Paste a YouTube, SoundCloud, Pinterest, Facebook, Twitter, Instagram, or TikTok link and extract audio or video.</p>
             </article>
             <article class="tool-card">
               <form id="converter-form" class="stack-form">
                 <label class="field">
-                  <span>Link</span>
+                    <span>Link</span>
                   <input
                     id="youtube-url"
                     type="url"
@@ -94,25 +174,25 @@
                 </label>
                 <div class="controls controls-4">
                   <label class="field field-compact">
-                    <span>Salida</span>
+                    <span>Output</span>
                     <select id="media-format">
-                      <option value="mp3">Audio MP3</option>
-                      <option value="mp4">Video MP4</option>
+                      <option value="mp3">MP3 Audio</option>
+                      <option value="mp4">MP4 Video</option>
                     </select>
                   </label>
                   <label class="field field-compact">
-                    <span>Calidad</span>
+                    <span>Quality</span>
                     <select id="quality"></select>
                   </label>
-                  <button id="preview-button" type="button" class="ghost-button">Previsualizar</button>
-                  <button id="download-button" type="submit" class="primary-button">Descargar</button>
+                  <button id="preview-button" type="button" class="ghost-button">Preview</button>
+                  <button id="download-button" type="submit" class="primary-button">Download</button>
                 </div>
               </form>
-              <p id="status" class="status">Esperando un link compatible.</p>
+              <p id="status" class="status">Waiting for a supported link.</p>
               <section id="preview" class="preview preview-empty">
                 <div class="preview-placeholder">
                   <div class="preview-icon"></div>
-                  <p>La ficha del link aparecera aqui.</p>
+                  <p>The link preview will appear here.</p>
                 </div>
               </section>
             </article>
@@ -133,19 +213,19 @@
                 <textarea
                   id="bulk-urls"
                   rows="7"
-                  placeholder="Un link por linea. Mezcla YouTube, SoundCloud, Pinterest, Facebook, Twitter, Instagram o TikTok."
+                  placeholder="One link per line. Mix YouTube, SoundCloud, Pinterest, Facebook, Twitter, Instagram, or TikTok."
                 ></textarea>
               </label>
               <div class="controls controls-2">
                 <label class="field field-compact">
-                  <span>Calidad</span>
+                  <span>Quality</span>
                   <select id="bulk-quality"></select>
                 </label>
-                <button id="bulk-build-button" type="submit" class="primary-button">Preparar lote</button>
+                <button id="bulk-build-button" type="submit" class="primary-button">Prepare batch</button>
               </div>
             </form>
-            <p id="bulk-status" class="status">Arma un lote de links y te dejo las descargas listas.</p>
-            <div id="bulk-results" class="batch-list empty-state">Todavia no hay descargas preparadas.</div>
+            <p id="bulk-status" class="status">Build a batch of links and get all downloads ready.</p>
+            <div id="bulk-results" class="batch-list empty-state">No downloads prepared yet.</div>
           </div>
         </section>
 
@@ -159,7 +239,7 @@
           <div class="tool-card">
             <form id="video-form" class="stack-form" enctype="multipart/form-data">
               <div class="source-toggle">
-                <button id="source-upload" class="toggle-chip is-active" type="button">Subir</button>
+                <button id="source-upload" class="toggle-chip is-active" type="button">Upload</button>
                 <button id="source-pinterest" class="toggle-chip pinterest-chip" type="button">
                   <span class="pinterest-badge" aria-hidden="true"><img src="/pinterest.png" alt="" /></span>
                   Pinterest
@@ -168,13 +248,13 @@
 
               <div class="upload-grid">
                 <label class="field file-field">
-                  <span>Imagen</span>
+                  <span>Image</span>
                   <input id="video-image" name="image" type="file" accept="image/*" required />
                   <span class="file-trigger">
                     <span class="file-icon file-icon-image">IMG</span>
                     <span class="file-copy">
-                      <strong>Subir imagen</strong>
-                      <small id="image-file-name">Ningun archivo</small>
+                      <strong>Upload image</strong>
+                      <small id="image-file-name">No file selected</small>
                     </span>
                   </span>
                 </label>
@@ -185,8 +265,8 @@
                   <span class="file-trigger">
                     <span class="file-icon file-icon-audio">AUD</span>
                     <span class="file-copy">
-                      <strong>Subir audio</strong>
-                      <small id="audio-file-name">Ningun archivo</small>
+                      <strong>Upload audio</strong>
+                      <small id="audio-file-name">No file selected</small>
                     </span>
                   </span>
                 </label>
@@ -194,29 +274,29 @@
 
               <section id="pinterest-panel" class="soft-panel is-hidden">
                 <label class="field">
-                  <span>Link de Pinterest</span>
+                  <span>Pinterest link</span>
                   <input id="pinterest-url" type="url" placeholder="https://www.pinterest.com/pin/..." autocomplete="off" />
                 </label>
                 <div class="gallery-actions">
-                  <button id="pinterest-preview-button" type="button" class="ghost-button">Cargar portada</button>
+                  <button id="pinterest-preview-button" type="button" class="ghost-button">Load cover</button>
                 </div>
               </section>
 
               <div class="controls controls-4">
                 <label class="field field-compact">
-                  <span>Formato</span>
+                  <span>Format</span>
                   <select id="video-ratio" name="ratio"></select>
                 </label>
-                <button id="video-preview-button" type="button" class="ghost-button">Preparar</button>
-                <button id="video-submit-button" type="submit" class="primary-button">Crear MP4</button>
+                <button id="video-preview-button" type="button" class="ghost-button">Prepare</button>
+                <button id="video-submit-button" type="submit" class="primary-button">Create MP4</button>
               </div>
             </form>
 
-            <p id="video-status" class="status">Sube una imagen y un audio para montar el video.</p>
+            <p id="video-status" class="status">Upload an image and audio to build the video.</p>
             <section id="video-preview" class="preview preview-empty">
               <div class="preview-placeholder">
                 <div class="preview-icon"></div>
-                <p>Tu composicion de video aparecera aqui.</p>
+                  <p>Your video composition will appear here.</p>
               </div>
             </section>
           </div>
@@ -237,22 +317,22 @@
                 <span class="file-trigger">
                   <span class="file-icon file-icon-audio">AUD</span>
                   <span class="file-copy">
-                    <strong>Subir audio</strong>
-                    <small id="trim-audio-name">Ningun archivo</small>
+                    <strong>Upload audio</strong>
+                    <small id="trim-audio-name">No file selected</small>
                   </span>
                 </span>
               </label>
               <div class="triple-grid">
                 <label class="field">
-                  <span>Inicio</span>
+                  <span>Start</span>
                   <input id="trim-start" type="text" placeholder="0:15" />
                 </label>
                 <label class="field">
-                  <span>Fin</span>
+                  <span>End</span>
                   <input id="trim-end" type="text" placeholder="1:00" />
                 </label>
                 <label class="field">
-                  <span>Formato</span>
+                  <span>Format</span>
                   <select id="trim-format">
                     <option value="mp3">MP3</option>
                     <option value="wav">WAV</option>
@@ -261,13 +341,13 @@
               </div>
               <div class="controls controls-2">
                 <label class="field field-compact">
-                  <span>Calidad</span>
+                  <span>Quality</span>
                   <select id="trim-quality"></select>
                 </label>
-                <button id="trim-submit-button" type="submit" class="primary-button">Recortar audio</button>
+                <button id="trim-submit-button" type="submit" class="primary-button">Trim audio</button>
               </div>
             </form>
-            <p id="trim-status" class="status">Sube un audio y marca el rango.</p>
+            <p id="trim-status" class="status">Upload audio and mark the range.</p>
           </div>
         </section>
       </main>

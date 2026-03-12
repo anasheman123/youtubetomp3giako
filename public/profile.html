@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile | GtubeVersor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="/catwithpodsforico.png" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+
+    <main class="profile-shell profile-shell-refined">
+      <header class="page-header profile-page-header">
+        <div class="brand">
+          <span class="brand-mark">
+            <img src="/catwithpods.png" alt="GtubeVersor logo" />
+          </span>
+          <div>
+            <strong>GtubeVersor</strong>
+            <small>Creator Toolkit</small>
+          </div>
+        </div>
+
+        <nav class="page-actions">
+          <a class="page-link page-link-back" href="/">Dashboard</a>
+          <a id="profile-subscribe-link" class="page-link" href="/subscribe.html">Subscribe</a>
+        </nav>
+      </header>
+
+      <section class="top-row">
+        <article class="avatar-card">
+          <label for="avatar-input" class="avatar-wrap" title="Change profile photo">
+            <div class="avatar-circle" id="avatar-display">
+              <svg viewBox="0 0 40 40" fill="none" stroke="#d9c39a" stroke-width="1.4">
+                <circle cx="20" cy="15" r="7" />
+                <path d="M6 36c0-7.732 6.268-12 14-12s14 4.268 14 12" />
+              </svg>
+            </div>
+            <div class="avatar-overlay">
+              <svg viewBox="0 0 16 16" fill="none" stroke-width="1.6">
+                <path d="M2 12V5.5l2.5-3h7L14 5.5V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1Z" />
+                <circle cx="8" cy="8.5" r="2.2" />
+              </svg>
+              <span>Change</span>
+            </div>
+          </label>
+          <input type="file" id="avatar-input" accept="image/*" />
+
+          <div id="profile-user" class="avatar-username">-</div>
+          <div id="profile-plan" class="plan-pill plan-free">Free</div>
+        </article>
+
+        <div class="profile-overview">
+          <div class="profile-heading">
+            <span class="eyebrow profile-eyebrow">Profile</span>
+            <h1 id="profile-title">Your account</h1>
+            <p class="profile-copy">Your recent activity and conversion history are gathered here.</p>
+          </div>
+
+          <div class="user-search-panel">
+            <label class="account-search-label" for="profile-user-search">Search users</label>
+            <input id="profile-user-search" class="account-search-input profile-search-input" type="search" placeholder="Find another profile" autocomplete="off" />
+            <div id="profile-search-results" class="user-search-results profile-search-results is-hidden"></div>
+          </div>
+
+          <div class="stat-grid profile-stat-grid">
+          <article class="stat-card stat-card-wide">
+            <div class="stat-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke-width="1.6">
+                <path d="M2 12V4l6 4 6-4v8" />
+                <path d="M2 12h12" />
+              </svg>
+            </div>
+            <div class="label">Conversions</div>
+            <div id="profile-conversions" class="value">0</div>
+          </article>
+
+          <article class="stat-card stat-card-wide">
+            <div class="stat-icon">
+              <svg viewBox="0 0 16 16" fill="none" stroke-width="1.6">
+                <path d="M3 8h10M8 3l5 5-5 5" />
+              </svg>
+            </div>
+            <div class="label">Latest activity</div>
+            <div id="profile-last-conversion" class="stat-copy">No conversions yet.</div>
+          </article>
+        </div>
+        </div>
+      </section>
+
+      <section class="section-card profile-history-section" id="profile-history">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">History</span>
+            <h2>Your conversions</h2>
+          </div>
+        </div>
+
+        <div class="profile-history-scroll">
+          <div id="profile-history-list" class="profile-history-list">
+            <div class="empty-copy">No conversions yet.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <section id="avatar-editor" class="avatar-editor is-hidden" aria-hidden="true">
+      <div class="avatar-editor-card">
+        <div class="avatar-editor-head">
+          <div>
+            <span class="eyebrow">Avatar</span>
+            <h2>Adjust your photo</h2>
+          </div>
+          <button id="avatar-editor-close" type="button" class="ghost-button">Cancel</button>
+        </div>
+
+        <div class="avatar-editor-body">
+          <div class="avatar-editor-stage">
+            <div id="avatar-editor-frame" class="avatar-editor-frame">
+              <img id="avatar-editor-image" class="avatar-editor-image is-hidden" alt="Preview avatar" />
+            </div>
+          </div>
+
+          <div class="avatar-editor-controls">
+            <label class="field">
+              <span>Zoom</span>
+              <input id="avatar-zoom" type="range" min="100" max="250" value="100" />
+            </label>
+            <label class="field">
+              <span>Horizontal</span>
+              <input id="avatar-offset-x" type="range" min="-100" max="100" value="0" />
+            </label>
+            <label class="field">
+              <span>Vertical</span>
+              <input id="avatar-offset-y" type="range" min="-100" max="100" value="0" />
+            </label>
+            <p id="avatar-editor-status" class="status">Adjust the image and save when it looks right.</p>
+            <button id="avatar-editor-save" type="button" class="primary-button">Save photo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script src="/profile.js" defer></script>
+  </body>
+</html>

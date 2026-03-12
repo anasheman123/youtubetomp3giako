@@ -1,5 +1,11 @@
 node_modules/
 data/uploads/
+data/auth-accounts.json
+data/auth-sessions.json
+data/extractor-events.json
+data/projects.json
+data/recent-conversions.json
+data/users.json
 .env
 *.log
 1772304102774-player-script.js
