@@ -75,18 +75,21 @@ const PLAN_DETAILS = {
   },
 };
 
-function renderPlans(items, currentPlanId, session) {
+function renderPlans(items, currentPlanId, session, supportLinks) {
   const plansGrid = document.querySelector("#plans-grid");
   plansGrid.innerHTML = items
     .filter((plan) => plan.id !== "free")
     .map((plan) => {
       const isCurrent = plan.id === currentPlanId;
       const needsLogin = !session || session.guest;
+      const externalLink = supportLinks?.[plan.id] || "";
       const buttonLabel = isCurrent
         ? "Current tier"
         : needsLogin
           ? "Sign in to support"
-          : escapeHtml(PLAN_DETAILS[plan.id]?.cta || `Support as ${plan.name}`);
+          : externalLink
+            ? escapeHtml(PLAN_DETAILS[plan.id]?.cta || `Support as ${plan.name}`)
+            : "Link not set";
 
       return `
         <article class="plan-card ${isCurrent ? "is-current" : ""}" style="--plan-color:${escapeHtml(plan.color)}; --plan-accent:${escapeHtml(plan.accent)}">
@@ -105,7 +108,7 @@ function renderPlans(items, currentPlanId, session) {
           <ul class="plan-features">
             ${(PLAN_DETAILS[plan.id]?.features || []).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}
           </ul>
-          <button class="primary-button plan-select" data-plan-id="${escapeHtml(plan.id)}" ${isCurrent || needsLogin ? "disabled" : ""}>${buttonLabel}</button>
+          <button class="primary-button plan-select" data-plan-id="${escapeHtml(plan.id)}" data-support-link="${escapeHtml(externalLink)}" ${isCurrent || needsLogin ? "disabled" : ""}>${buttonLabel}</button>
         </article>
       `;
     })
@@ -113,10 +116,11 @@ function renderPlans(items, currentPlanId, session) {
 }
 
 async function boot() {
-  const [session, profile, plans] = await Promise.all([
+  const [session, profile, plans, supportConfig] = await Promise.all([
     fetchJson("/api/auth/session"),
     fetchJson("/api/subscription/me"),
     fetchJson("/api/subscription/plans"),
+    fetchJson("/api/support-links"),
   ]);
 
   document.querySelector("#subscribe-current").innerHTML = `
@@ -126,7 +130,7 @@ async function boot() {
     </span>
   `;
 
-  renderPlans(plans.items || [], profile.planId || "free", session);
+  renderPlans(plans.items || [], profile.planId || "free", session, supportConfig.links || {});
 
   if (session.guest) {
     setSupportStatus("Sign in with a real account if you want a manual support tier.");
@@ -137,9 +141,16 @@ async function boot() {
   document.querySelectorAll(".plan-select").forEach((button) => {
     button.addEventListener("click", () => {
       const planId = button.dataset.planId;
+      const supportLink = button.dataset.supportLink || "";
       const selectedPlan = plans.items?.find((plan) => plan.id === planId);
       const tierName = selectedPlan?.name || planId;
-      setSupportStatus(`Manual support only for now. If you receive support for ${tierName}, that account can be upgraded manually afterwards.`, "success");
+      if (!supportLink) {
+        setSupportStatus(`The Ko-fi link for ${tierName} is not configured yet. Add it in the server .env first.`, "error");
+        return;
+      }
+
+      setSupportStatus(`Opening the external support page for ${tierName}. Once the payment arrives, that account can be upgraded manually.`, "success");
+      window.open(supportLink, "_blank", "noopener,noreferrer");
     });
   });
 }

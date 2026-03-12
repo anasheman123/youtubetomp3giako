@@ -69,6 +69,11 @@ const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || "").trim();
 const GOOGLE_CLIENT_SECRET = String(process.env.GOOGLE_CLIENT_SECRET || "").trim();
 const GOOGLE_CALLBACK_URL = String(process.env.GOOGLE_CALLBACK_URL || "").trim();
 const APP_BASE_URL = String(process.env.APP_BASE_URL || "").trim().replace(/\/+$/, "");
+const SUPPORT_LINKS = {
+  pro: String(process.env.KOFI_LINK_RISING || "").trim(),
+  elite: String(process.env.KOFI_LINK_STANDOUT || "").trim(),
+  legend: String(process.env.KOFI_LINK_ICON || "").trim(),
+};
 const PADDLE_API_KEY = String(process.env.PADDLE_API_KEY || "").trim();
 const PADDLE_CLIENT_TOKEN = String(process.env.PADDLE_CLIENT_TOKEN || "").trim();
 const PADDLE_WEBHOOK_SECRET = String(process.env.PADDLE_WEBHOOK_SECRET || "").trim();
@@ -122,7 +127,7 @@ const SUBSCRIPTION_PLANS = {
   elite: {
     id: "elite",
     name: "Standout",
-    price: "$5",
+    price: "$10",
     subtitle: "Mas presencia visual y mejor insignia.",
     color: "#69c8ff",
     accent: "rgba(105, 200, 255, 0.2)",
@@ -2481,6 +2486,12 @@ app.get("/api/subscription/plans", (_req, res) => {
       ...plan,
       checkoutEnabled: plan.id === "free" ? false : isPaddlePlanReady(plan.id),
     })),
+  });
+});
+
+app.get("/api/support-links", (_req, res) => {
+  res.json({
+    links: SUPPORT_LINKS,
   });
 });
 
