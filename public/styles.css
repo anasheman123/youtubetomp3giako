@@ -2122,7 +2122,7 @@ select:disabled {
 
 #youtube-tool #status {
   align-self: flex-start;
-  margin: 0 0 -18px 18px;
+  margin: 0 0 -52px 24px;
   padding: 10px 14px;
   border-radius: 16px;
   border: 1px solid rgba(231, 220, 198, 0.14);
