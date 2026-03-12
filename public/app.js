@@ -536,6 +536,20 @@ function renderPreviewLoader(node, message = "Loading...") {
   `;
 }
 
+function renderPreviewSuccess(node, message = "Download complete") {
+  if (!node) {
+    return;
+  }
+
+  node.classList.add("preview-empty");
+  node.innerHTML = `
+    <div class="preview-placeholder preview-loader-shell preview-success-shell">
+      <span class="status-check preview-status-check" aria-hidden="true"></span>
+      <p>${escapeHtml(message)}</p>
+    </div>
+  `;
+}
+
 async function fetchAudioPreview(target) {
   const url = target.urlInput.value.trim();
   if (!url) {
@@ -606,8 +620,10 @@ function attachAudioTool(target) {
     renderPreviewLoader(target.previewNode, isVideo ? "Preparing MP4 download..." : "Preparing MP3 download...");
     await getForDownload(`${isVideo ? target.videoEndpoint : target.audioEndpoint}?${params.toString()}`, isVideo ? "video.mp4" : "audio.mp3");
     setCompletedStatus(target.statusNode, "Download complete");
+    renderPreviewSuccess(target.previewNode, "Download complete");
     setTimeout(() => {
       setStatus(target.statusNode, target.previewCta, "success");
+      renderAudioPreview(target, preview);
     }, 1800);
     setTimeout(refreshRecent, 1200);
   });

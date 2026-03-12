@@ -1932,6 +1932,23 @@ select:disabled {
   margin: 0;
 }
 
+.preview-success-shell {
+  gap: 16px;
+}
+
+.preview-status-check {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+}
+
+.preview-status-check::after {
+  left: 9px;
+  top: 4px;
+  width: 7px;
+  height: 13px;
+}
+
 .site-footer {
   display: flex;
   align-items: center;
