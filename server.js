@@ -93,6 +93,12 @@ const PADDLE_PLAN_PRICE_IDS = {
   elite: PADDLE_PRICE_STANDOUT,
   legend: PADDLE_PRICE_ICON,
 };
+const PRODUCTION_PLAN_OVERRIDES =
+  process.env.NODE_ENV === "production"
+    ? {
+        giako: "legend",
+      }
+    : {};
 
 const SUBSCRIPTION_PLANS = {
   free: {
@@ -955,9 +961,12 @@ function ensureUserProfile(username) {
 
 function getUserProfile(username) {
   const profile = ensureUserProfile(username);
+  const overridePlanId = PRODUCTION_PLAN_OVERRIDES[String(profile.username || "").trim().toLowerCase()];
+  const planId = SUBSCRIPTION_PLANS[overridePlanId] ? overridePlanId : profile.planId;
   return {
     ...profile,
-    subscription: getSubscriptionPlan(profile.planId),
+    planId,
+    subscription: getSubscriptionPlan(planId),
   };
 }
 
