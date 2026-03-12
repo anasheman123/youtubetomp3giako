@@ -20,7 +20,7 @@ async function fetchJson(url, options) {
   return data;
 }
 
-function getSubscriptionDisplayColor(subscription) {
+function getSupportDisplayColor(subscription) {
   if (!subscription) {
     return "#f0dfad";
   }
@@ -31,13 +31,13 @@ function getSubscriptionDisplayColor(subscription) {
 function renderUsername(username, subscription) {
   const safeUsername = escapeHtml(username);
   if (subscription?.id && subscription.id !== "free") {
-    return `<span class="username-crown" aria-hidden="true">♔</span><span>${safeUsername}</span>`;
+    return `<span class="username-crown" aria-hidden="true">&#9812;</span><span>${safeUsername}</span>`;
   }
 
   return safeUsername;
 }
 
-function setSubscribeStatus(message, tone = "") {
+function setSupportStatus(message, tone = "") {
   const status = document.querySelector("#subscribe-status");
   if (!status) {
     return;
@@ -45,23 +45,6 @@ function setSubscribeStatus(message, tone = "") {
 
   status.textContent = message || "";
   status.className = `status subscribe-status${tone ? ` ${tone}` : ""}`;
-}
-
-let paddleInitializedToken = "";
-
-function ensurePaddleCheckout(config) {
-  if (!window.Paddle) {
-    throw new Error("Paddle.js did not load.");
-  }
-
-  if (config.environment === "sandbox" && window.Paddle.Environment?.set) {
-    window.Paddle.Environment.set("sandbox");
-  }
-
-  if (paddleInitializedToken !== config.clientToken) {
-    window.Paddle.Initialize({ token: config.clientToken });
-    paddleInitializedToken = config.clientToken;
-  }
 }
 
 async function logout() {
@@ -73,54 +56,40 @@ const PLAN_DETAILS = {
   free: {
     headline: "The starting point for any account.",
     features: ["Base color", "Visible profile", "Full app access"],
-    cta: "Current plan",
+    cta: "Current tier",
   },
   pro: {
-    headline: "A step above Newbie with a more visible look.",
-    features: ["Golden color", "Soft star", "Stronger visual tier"],
-    cta: "Get Rising",
+    headline: "A light support tier with a more visible profile style.",
+    features: ["Golden color", "Support badge", "Manual tier upgrade"],
+    cta: "Support as Rising",
   },
   elite: {
-    headline: "More presence so your account stands out better.",
-    features: ["Sky blue color", "Premium badge", "Clearer visual presence"],
-    cta: "Get Standout",
+    headline: "A bigger support tier for a more noticeable account style.",
+    features: ["Sky blue color", "Premium badge", "Manual tier upgrade"],
+    cta: "Support as Standout",
   },
   legend: {
-    headline: "The highest tier for your profile identity.",
-    features: ["Rose color", "Top-tier badge", "Stronger presence in profile and Recent"],
-    cta: "Get Icon",
+    headline: "The top support tier for your visual profile identity.",
+    features: ["Rose color", "Top-tier badge", "Manual tier upgrade"],
+    cta: "Support as Icon",
   },
 };
 
-const PLAN_ORDER = ["free", "pro", "elite", "legend"];
-
-function getPlanRank(planId) {
-  const rank = PLAN_ORDER.indexOf(planId);
-  return rank === -1 ? 0 : rank;
-}
-
 function renderPlans(items, currentPlanId, session) {
-  const currentRank = getPlanRank(currentPlanId);
   const plansGrid = document.querySelector("#plans-grid");
   plansGrid.innerHTML = items
     .filter((plan) => plan.id !== "free")
     .map((plan) => {
-      const planRank = getPlanRank(plan.id);
       const isCurrent = plan.id === currentPlanId;
-      const isLocked = planRank < currentRank;
       const needsLogin = !session || session.guest;
-      const checkoutUnavailable = !plan.checkoutEnabled;
       const buttonLabel = isCurrent
-        ? "Current plan"
-        : isLocked
-          ? "Locked"
-          : needsLogin
-            ? "Sign in required"
-            : checkoutUnavailable
-              ? "Unavailable"
-              : escapeHtml(PLAN_DETAILS[plan.id]?.cta || `Choose ${plan.name}`);
+        ? "Current tier"
+        : needsLogin
+          ? "Sign in to support"
+          : escapeHtml(PLAN_DETAILS[plan.id]?.cta || `Support as ${plan.name}`);
+
       return `
-        <article class="plan-card ${isCurrent ? "is-current" : ""} ${isLocked ? "is-locked" : ""}" style="--plan-color:${escapeHtml(plan.color)}; --plan-accent:${escapeHtml(plan.accent)}">
+        <article class="plan-card ${isCurrent ? "is-current" : ""}" style="--plan-color:${escapeHtml(plan.color)}; --plan-accent:${escapeHtml(plan.accent)}">
           <div class="plan-head">
             <div>
               <h2>${escapeHtml(plan.name)}</h2>
@@ -130,13 +99,13 @@ function renderPlans(items, currentPlanId, session) {
           </div>
           <div class="plan-price-row">
             <span class="plan-price">${escapeHtml(plan.price)}</span>
-            <span class="plan-unit">one-time payment</span>
+            <span class="plan-unit">suggested support</span>
           </div>
-          <div class="plan-preview" style="color:${escapeHtml(getSubscriptionDisplayColor(plan))}">${renderUsername("username", plan)}</div>
+          <div class="plan-preview" style="color:${escapeHtml(getSupportDisplayColor(plan))}">${renderUsername("username", plan)}</div>
           <ul class="plan-features">
             ${(PLAN_DETAILS[plan.id]?.features || []).map((feature) => `<li>${escapeHtml(feature)}</li>`).join("")}
           </ul>
-          <button class="primary-button plan-select" data-plan-id="${escapeHtml(plan.id)}" ${isCurrent || isLocked || needsLogin || checkoutUnavailable ? "disabled" : ""}>${buttonLabel}</button>
+          <button class="primary-button plan-select" data-plan-id="${escapeHtml(plan.id)}" ${isCurrent || needsLogin ? "disabled" : ""}>${buttonLabel}</button>
         </article>
       `;
     })
@@ -151,7 +120,7 @@ async function boot() {
   ]);
 
   document.querySelector("#subscribe-current").innerHTML = `
-    <span class="subscribe-current-label">Your subscription</span>
+    <span class="subscribe-current-label">Your support tier</span>
     <span class="plan-pill" style="--plan-accent:${escapeHtml(profile.subscription?.accent || "rgba(217, 195, 154, 0.18)")}; --plan-color:${escapeHtml(profile.subscription?.color || "#d9c39a")}">
       ${escapeHtml(profile.subscription?.name || "Newbie")}
     </span>
@@ -159,42 +128,18 @@ async function boot() {
 
   renderPlans(plans.items || [], profile.planId || "free", session);
 
-  const checkoutState = new URLSearchParams(window.location.search).get("checkout");
-  if (checkoutState === "success") {
-    setSubscribeStatus("Payment received. Your plan should update in a few seconds.");
-  } else if (checkoutState === "cancel") {
-    setSubscribeStatus("Checkout was canceled.");
-  } else if (session.guest) {
-    setSubscribeStatus("Sign in with a real account to purchase a plan.");
+  if (session.guest) {
+    setSupportStatus("Sign in with a real account if you want a manual support tier.");
   } else {
-    setSubscribeStatus("");
+    setSupportStatus("Support is handled manually for now. Once a payment is confirmed outside the app, the matching tier can be assigned manually.");
   }
 
   document.querySelectorAll(".plan-select").forEach((button) => {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => {
       const planId = button.dataset.planId;
-      const originalLabel = button.textContent;
-      try {
-        button.disabled = true;
-        button.textContent = "Redirecting...";
-        const checkout = await fetchJson("/api/subscription/checkout-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planId }),
-        });
-        if (!checkout?.transactionId || !checkout?.clientToken) {
-          throw new Error("Could not start Paddle checkout.");
-        }
-        ensurePaddleCheckout(checkout);
-        window.Paddle.Checkout.open({
-          transactionId: checkout.transactionId,
-          customer: checkout.customer?.email ? { email: checkout.customer.email } : undefined,
-        });
-      } catch (error) {
-        button.disabled = false;
-        button.textContent = originalLabel;
-        setSubscribeStatus(error.message);
-      }
+      const selectedPlan = plans.items?.find((plan) => plan.id === planId);
+      const tierName = selectedPlan?.name || planId;
+      setSupportStatus(`Manual support only for now. If you receive support for ${tierName}, that account can be upgraded manually afterwards.`, "success");
     });
   });
 }
