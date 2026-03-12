@@ -127,7 +127,7 @@ const SUBSCRIPTION_PLANS = {
   elite: {
     id: "elite",
     name: "Standout",
-    price: "$10",
+    price: "$5",
     subtitle: "Mas presencia visual y mejor insignia.",
     color: "#69c8ff",
     accent: "rgba(105, 200, 255, 0.2)",
