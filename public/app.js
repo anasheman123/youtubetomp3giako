@@ -117,6 +117,14 @@ function setStatus(node, message, tone = "") {
   }
 }
 
+function setCompletedStatus(node, message = "Download complete") {
+  node.innerHTML = `
+    <span class="status-check" aria-hidden="true"></span>
+    <span>${escapeHtml(message)}</span>
+  `;
+  node.dataset.tone = "success";
+}
+
 function buildPlanLabel(subscription) {
   if (!subscription) {
     return "";
@@ -363,6 +371,18 @@ async function postFormForDownload(url, formData, fallbackName) {
   downloadBlob(blob, response, fallbackName);
 }
 
+async function getForDownload(url, fallbackName) {
+  const response = await apiFetch(url, { method: "GET", credentials: "same-origin" });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({ error: "Could not process the request." }));
+    const details = typeof data.details === "string" ? data.details.trim() : "";
+    throw new Error(details ? `${data.error || "Could not process the request."} (${details})` : data.error || "Could not process the request.");
+  }
+
+  const blob = await response.blob();
+  downloadBlob(blob, response, fallbackName);
+}
+
 function switchPanel(targetId) {
   navLinks.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.target === targetId);
@@ -582,10 +602,14 @@ function attachAudioTool(target) {
       params.set("quality", target.qualitySelect.value);
     }
 
-    setStatus(target.statusNode, isVideo ? "Preparando descarga del MP4..." : "Preparando descarga del MP3...", "success");
+    setStatus(target.statusNode, isVideo ? "Preparing MP4 download..." : "Preparing MP3 download...", "success");
     renderPreviewLoader(target.previewNode, isVideo ? "Preparing MP4 download..." : "Preparing MP3 download...");
+    await getForDownload(`${isVideo ? target.videoEndpoint : target.audioEndpoint}?${params.toString()}`, isVideo ? "video.mp4" : "audio.mp3");
+    setCompletedStatus(target.statusNode, "Download complete");
+    setTimeout(() => {
+      setStatus(target.statusNode, target.previewCta, "success");
+    }, 1800);
     setTimeout(refreshRecent, 1200);
-    window.location.href = `${isVideo ? target.videoEndpoint : target.audioEndpoint}?${params.toString()}`;
   });
 }
 
